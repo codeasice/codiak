@@ -32,7 +32,13 @@ This Streamlit app helps you manage and update your Obsidian vault notes, especi
    ```sh
    pip install -r requirements.txt
    ```
-3. **Run the app:**
+3. **(Optional) Set your Obsidian vault path with a .env file:**
+   - Create a file named `.env` in the project root with the following content:
+     ```env
+     OB_VAULT_PATH=C:\Users\live\Documents\Codeasice
+     ```
+   - If not set, the app will default to `./vault`.
+4. **Run the app:**
    ```sh
    streamlit run app.py
    ```

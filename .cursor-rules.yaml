@@ -1,0 +1,24 @@
+# Cursor rules for Codiak
+
+ignore:
+  - .env
+  - .streamlit/
+  - __pycache__/
+  - .vscode/
+  - .mypy_cache/
+  - .pytest_cache/
+  - .DS_Store
+  - Thumbs.db
+  - env/
+  - .git/
+
+style:
+  python:
+    lint: true
+    formatter: autopep8
+    max-line-length: 100
+    sort-imports: true
+
+notes:
+  - Do not commit .env or any files containing sensitive or user-specific information.
+  - Follow PEP8 for Python code style.
