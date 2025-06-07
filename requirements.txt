@@ -1,2 +1,5 @@
-streamlit>=1.27.0
-python-dotenv
+# Requirements for Codiak
+streamlit>=1.27.0  # Web app framework
+python-dotenv>=1.0.0  # For loading .env environment variables
+markdownify>=0.11.6  # For converting HTML to Markdown
+streamlit-quill>=0.0.3  # For rich text input in Streamlit

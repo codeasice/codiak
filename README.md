@@ -6,6 +6,7 @@ This Streamlit app helps you manage and update your Obsidian vault notes, especi
 
 - Identify notes with a specific tag that do not start with a specified emoji, and batch-rename them.
 - Find and optionally fix links in your vault that do not use the emoji-based filename convention.
+- Convert HTML content to Markdown.
 
 ## Features
 
@@ -21,6 +22,11 @@ This Streamlit app helps you manage and update your Obsidian vault notes, especi
 - See real-time progress and results.
 - Optionally, batch-fix a limited number of invalid links automatically.
 
+### 3. HTML to Markdown Converter
+- Paste rich HTML content and convert it to Markdown using the `markdownify` package.
+- Uses `streamlit-quill` for rich text input, which better preserves formatting when pasting from web sources.
+- Useful for transferring formatted content into your Obsidian vault.
+
 ## Setup
 
 1. **Clone the repository:**
@@ -32,6 +38,12 @@ This Streamlit app helps you manage and update your Obsidian vault notes, especi
    ```sh
    pip install -r requirements.txt
    ```
+
+   This will install all required packages, including:
+   - `streamlit` (web app framework)
+   - `python-dotenv` (for .env support)
+   - `streamlit-quill` (rich text input in Streamlit)
+   - `markdownify` (convert HTML to Markdown)
 3. **(Optional) Set your Obsidian vault path with a .env file:**
    - Create a file named `.env` in the project root with the following content:
      ```env
@@ -41,6 +53,9 @@ This Streamlit app helps you manage and update your Obsidian vault notes, especi
 4. **Run the app:**
    ```sh
    streamlit run app.py
+
+   #May want to do this to ensure using the right streamlit:
+   python -m streamlit run app.py
    ```
 
 ## Usage

@@ -1,0 +1,106 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Cursor Rule: Using streamlit_lexical for Rich HTML to Markdown Conversion in Streamlit
+
+## Purpose
+Enable users to paste or type rich HTML content (including formatted content from web pages) into a Streamlit app and receive live Markdown output, using the latest `streamlit_lexical` package.
+
+
+
+---
+
+### 1. Installation
+Install the latest version of `streamlit_lexical` directly from GitHub:
+```sh
+pip install --upgrade git+https://github.com/musubi-labs/streamlit_lexical.git
+```
+
+
+
+---
+
+### 2. Import
+Import the function as follows:
+```python
+from streamlit_lexical import streamlit_lexical
+```
+
+
+
+---
+
+### 3. Usage in Streamlit App
+Use the `streamlit_lexical` function to provide a rich text editor. The return value is Markdown.
+
+```python
+markdown = streamlit_lexical(
+    value="",
+    placeholder="Paste rich HTML or formatted content here...",
+    height=300,
+    debounce=500,
+    key='html_to_md_editor',
+    on_change=None
+)
+```
+
+
+
+---
+
+### 4. Display Markdown Output
+Show the Markdown output in a text area for easy copy-paste:
+```python
+st.text_area("Markdown Output:", value=markdown or "", height=200, key="markdown_output")
+```
+
+
+
+---
+
+### 5. No Need for Additional Conversion
+Do **not** use `markdownify` or `html2text` for conversion. The output from `streamlit_lexical` is already Markdown.
+
+
+
+---
+
+### 6. No Convert Button Needed
+The Markdown output updates live as the user types or pastes content.
+
+
+
+---
+
+### 7. Example Full Block
+```python
+from streamlit_lexical import streamlit_lexical
+import streamlit as st
+
+st.title("HTML to Markdown Converter (Rich Paste Supported)")
+st.info("Paste formatted content (e.g., from a web page) below. The Markdown output updates live.")
+
+markdown = streamlit_lexical(
+    value="",
+    placeholder="Paste rich HTML or formatted content here...",
+    height=300,
+    debounce=500,
+    key='html_to_md_editor',
+    on_change=None
+)
+st.text_area("Markdown Output:", value=markdown or "", height=200, key="markdown_output")
+```
+
+
+
+---
+
+**Summary:**
+- Use only `streamlit_lexical` for rich text input and Markdown output.
+- No need for extra conversion libraries.
+- Output is always Markdown, ready for Obsidian or other Markdown editors.
+
+
+

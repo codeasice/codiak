@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import re
 from dotenv import load_dotenv
+import sys
 
 load_dotenv()
 DEFAULT_VAULT_PATH = os.getenv('OB_VAULT_PATH', './vault')
@@ -10,7 +11,7 @@ st.set_page_config(page_title="Obsidian Emoji Tag Renamer", layout="wide")
 
 # Sidebar for tool selection (expandable later)
 st.sidebar.title("Tools")
-tool = st.sidebar.radio("Select a tool:", ["Emoji Tag Renamer", "Find Unupdated Links"])
+tool = st.sidebar.radio("Select a tool:", ["Emoji Tag Renamer", "Find Unupdated Links", "Remove Emoji Links", "Replace Tag", "HTML to Markdown"])
 
 # Show success message if present
 if 'success_message' in st.session_state:
@@ -335,3 +336,201 @@ elif tool == "Find Unupdated Links":
                     st.success("No unupdated links found!")
             if fix_links:
                 st.success(f"Fixed {fixes_done} invalid links (max {max_fixes})")
+
+elif tool == "Remove Emoji Links":
+    st.title("Remove Emoji Links")
+    st.write("Scan all markdown files for links that start with a specified emoji and optionally remove them.")
+
+    vault_path = st.text_input("Obsidian Vault Path", value=DEFAULT_VAULT_PATH, key="vault_path_remove")
+    emoji = st.text_input("Emoji to look for at start of links", value="🧍", key="emoji_remove")
+    ignore_string = st.text_input("Ignore files containing this string in filename", value="template", key="ignore_remove")
+    remove_links = st.checkbox("Remove emoji-prefixed links", value=False)
+    max_process = st.number_input("Max number of links to process", min_value=1, value=5, step=1)
+    search_btn = st.button("Search for emoji-prefixed links")
+
+    if search_btn:
+        if not os.path.isdir(vault_path):
+            st.error(f"Vault path '{vault_path}' does not exist.")
+        else:
+            # Initialize counters and storage
+            total_files = 0
+            files_with_emoji_links = {}
+            links_processed = 0
+
+            # Create progress bar
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+
+            # First pass: count total files
+            for root, _, files in os.walk(vault_path):
+                for file in files:
+                    if file.endswith(".md") and not (ignore_string and ignore_string in file):
+                        total_files += 1
+
+            # Second pass: scan files
+            current_file = 0
+            for root, _, files in os.walk(vault_path):
+                for file in files:
+                    if ignore_string and ignore_string in file:
+                        continue
+                    if file.endswith(".md"):
+                        current_file += 1
+                        file_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(file_path, vault_path)
+
+                        # Update progress
+                        progress = current_file / total_files if total_files else 1
+                        progress_bar.progress(progress)
+                        status_text.write(f"Scanning {current_file} of {total_files}: {rel_path}")
+
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+
+                        # Find all wiki-style links
+                        pattern = re.compile(r'\[\[([^\]]+)\]\]')
+                        matches = list(pattern.finditer(content))
+
+                        emoji_links = []
+                        for match in matches:
+                            link_text = match.group(1)
+                            if link_text.startswith(emoji):
+                                if links_processed < max_process:
+                                    emoji_links.append((match.start(), match.end(), link_text))
+                                    links_processed += 1
+                                if links_processed >= max_process:
+                                    break
+
+                        if emoji_links:
+                            files_with_emoji_links[rel_path] = emoji_links
+
+                            # If removal is enabled
+                            if remove_links:
+                                # Sort matches in reverse order to maintain correct indices
+                                emoji_links_sorted = sorted(emoji_links, reverse=True)
+                                new_content = content
+                                for start, end, link_text in emoji_links_sorted:
+                                    # Remove the emoji from the link
+                                    new_link = f"[[{link_text[len(emoji):]}]]"
+                                    new_content = new_content[:start] + new_link + new_content[end:]
+                                # Write changes if any were made
+                                if new_content != content:
+                                    with open(file_path, 'w', encoding='utf-8') as f:
+                                        f.write(new_content)
+                        if links_processed >= max_process:
+                            break
+            # Clear progress indicators
+            progress_bar.empty()
+            status_text.empty()
+
+            # Display results
+            if files_with_emoji_links:
+                st.write(f"Found {len(files_with_emoji_links)} files containing emoji-prefixed links")
+                if remove_links:
+                    st.success(f"Processed {links_processed} links (max {max_process})")
+                for file_path, links in files_with_emoji_links.items():
+                    with st.expander(f"{file_path} ({len(links)} links)"):
+                        for _, _, link_text in links:
+                            st.write(f"`{link_text}`")
+            else:
+                st.info("No emoji-prefixed links found in any files.")
+
+elif tool == "Replace Tag":
+    st.title("Replace Tag in Notes")
+    st.write("Scan all markdown files and replace a specified tag with another.")
+
+    vault_path = st.text_input("Obsidian Vault Path", value=DEFAULT_VAULT_PATH, key="vault_path_replace_tag")
+    old_tag = st.text_input("Tag to replace (include #)", value="#oldtag", key="old_tag")
+    new_tag = st.text_input("Replace with (include #)", value="#newtag", key="new_tag")
+    ignore_string = st.text_input("Ignore files containing this string in filename", value="template", key="ignore_replace_tag")
+    max_replacements = st.number_input("Max number of tag replacements to process", min_value=1, value=10, step=1)
+    do_replace = st.checkbox("Replace tags now", value=False)
+    search_btn = st.button("Search and Replace Tag")
+
+    if search_btn:
+        if not os.path.isdir(vault_path):
+            st.error(f"Vault path '{vault_path}' does not exist.")
+        elif not old_tag or not new_tag:
+            st.error("Both old and new tags must be specified.")
+        else:
+            total_files = 0
+            files_with_replacements = {}
+            replacements_done = [0]
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            # Count total files
+            for root, _, files in os.walk(vault_path):
+                for file in files:
+                    if file.endswith(".md") and not (ignore_string and ignore_string in file):
+                        total_files += 1
+            # Scan and replace
+            current_file = 0
+            for root, _, files in os.walk(vault_path):
+                for file in files:
+                    if ignore_string and ignore_string in file:
+                        continue
+                    if file.endswith(".md"):
+                        current_file += 1
+                        file_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(file_path, vault_path)
+                        progress = current_file / total_files if total_files else 1
+                        progress_bar.progress(progress)
+                        status_text.write(f"Scanning {current_file} of {total_files}: {rel_path}")
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                        # Find all occurrences of the old tag
+                        tag_pattern = re.escape(old_tag)
+                        matches = list(re.finditer(tag_pattern, content))
+                        if matches:
+                            files_with_replacements[rel_path] = len(matches)
+                            if do_replace and replacements_done[0] < max_replacements:
+                                # Replace only up to the max_replacements limit
+                                def limited_sub(match):
+                                    if replacements_done[0] < max_replacements:
+                                        replacements_done[0] += 1
+                                        return new_tag
+                                    else:
+                                        return match.group(0)
+                                new_content, n = re.subn(tag_pattern, limited_sub, content)
+                                if new_content != content:
+                                    with open(file_path, 'w', encoding='utf-8') as f:
+                                        f.write(new_content)
+                        if replacements_done[0] >= max_replacements:
+                            break
+                if replacements_done[0] >= max_replacements:
+                    break
+            progress_bar.empty()
+            status_text.empty()
+            if files_with_replacements:
+                st.write(f"Found {len(files_with_replacements)} files containing '{old_tag}'")
+                if do_replace:
+                    st.success(f"Replaced {replacements_done[0]} occurrences of '{old_tag}' with '{new_tag}' (max {max_replacements})")
+                for file_path, count in files_with_replacements.items():
+                    with st.expander(f"{file_path} ({count} matches)"):
+                        st.write(f"{count} occurrence(s) of '{old_tag}' found.")
+            else:
+                st.info(f"No files found containing the tag '{old_tag}'.")
+
+elif tool == "HTML to Markdown":
+    st.title("HTML to Markdown Converter (Rich Paste Supported)")
+    st.write("Paste your rich HTML (formatted content) below. The tool will convert it to Markdown using markdownify.")
+    st.info("You can paste formatted content (e.g., from a web page) directly into the editor below.")
+
+    try:
+        from markdownify import markdownify as md
+    except ImportError:
+        st.error("The markdownify package is required. Please install it with 'pip install markdownify'.")
+        st.stop()
+
+    from streamlit_quill import st_quill
+    html_input = st_quill(
+        value="",
+        placeholder="Paste rich HTML or formatted content here...",
+        html=True,
+        key='html_to_md_editor',
+    )
+    markdown = ""
+    if html_input:
+        markdown = md(html_input)
+        # Remove all blank lines
+        markdown = "\n".join([line for line in markdown.splitlines() if line.strip()])
+    st.text_area("Markdown Output:", value=markdown or "", height=200, key="markdown_output")
