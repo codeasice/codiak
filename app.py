@@ -7,7 +7,13 @@ import sys
 load_dotenv()
 DEFAULT_VAULT_PATH = os.getenv('OB_VAULT_PATH', './vault')
 
-st.set_page_config(page_title="Obsidian Emoji Tag Renamer", layout="wide")
+st.set_page_config(
+    page_title="Codiak",
+    page_icon="favicon.png",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 
 # Sidebar for tool selection (expandable later)
 st.sidebar.title("Tools")
