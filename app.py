@@ -1,98 +1,17 @@
 import streamlit as st
 import os
 from dotenv import load_dotenv
+import pandas as pd
 
 import tools
-from tools.mcp_client_tool import MCPClientTool
-import asyncio
+from tools.ui_tools_manager import UIToolsManager
 
 load_dotenv()
 DEFAULT_VAULT_PATH = os.getenv('OB_VAULT_PATH', './vault')
 
-# A list of all available tools in a structured format
-AVAILABLE_TOOLS = [
-    {
-        "id": "MCPClient",
-        "short_title": "MCP Client",
-        "long_title": "MCP Client",
-        "category": "MCP",
-        "description": "An interactive client to send requests to MCP servers.",
-        "render_func": tools.mcp_client_ui.render,
-        "requires_vault_path": False
-    },
-    {
-        "id": "HtmlToMarkdown",
-        "short_title": "HTML to Markdown",
-        "long_title": "HTML to Markdown Converter",
-        "category": "Note Taking",
-        "description": "A simple utility to convert HTML content into Markdown format.",
-        "render_func": tools.html_to_markdown.render,
-        "requires_vault_path": False
-    },
-    {
-        "id": "EmojiTagRenamer",
-        "short_title": "Emoji Tag Renamer",
-        "long_title": "Rename Emoji Tags in Obsidian",
-        "category": "Obsidian",
-        "description": "Scans your Obsidian vault to find and rename tags containing emojis to be compatible with Obsidian's tagging system.",
-        "render_func": tools.emoji_tag_renamer.render,
-        "requires_vault_path": True
-    },
-    {
-        "id": "FindUnupdatedLinks",
-        "short_title": "Find Unupdated Links",
-        "long_title": "Find Un-updated Internal Links in Obsidian",
-        "category": "Obsidian",
-        "description": "Finds internal links in your Obsidian vault that are using an older format and may need to be updated.",
-        "render_func": tools.find_unupdated_links.render,
-        "requires_vault_path": True
-    },
-    {
-        "id": "RemoveEmojiLinks",
-        "short_title": "Remove Emoji Links",
-        "long_title": "Remove Emoji Links from Obsidian Notes",
-        "category": "Obsidian",
-        "description": "Removes links from your Obsidian notes that contain emojis in the link text or destination.",
-        "render_func": tools.remove_emoji_links.render,
-        "requires_vault_path": True
-    },
-    {
-        "id": "ReplaceTag",
-        "short_title": "Replace Tag",
-        "long_title": "Replace a Tag in Obsidian",
-        "category": "Obsidian",
-        "description": "Performs a find-and-replace operation for a specific tag across all notes in your Obsidian vault.",
-        "render_func": tools.replace_tag.render,
-        "requires_vault_path": True
-    },
-    {
-        "id": "YnabListBudgets",
-        "short_title": "YNAB List Budgets",
-        "long_title": "List YNAB Budgets",
-        "category": "YNAB",
-        "description": "Fetches and displays a list of all your available budgets from the YNAB API.",
-        "render_func": tools.ynab_list_budgets.render,
-        "requires_vault_path": False
-    },
-    {
-        "id": "YnabGetTransactions",
-        "short_title": "YNAB Get Transactions",
-        "long_title": "Get Transactions from a YNAB Budget",
-        "category": "YNAB",
-        "description": "Select a budget and fetch a list of its recent transactions from the YNAB API.",
-        "render_func": tools.ynab_get_transactions.render,
-        "requires_vault_path": False
-    },
-    {
-        "id": "YnabCreateTransaction",
-        "short_title": "YNAB Create Transaction",
-        "long_title": "Create a New YNAB Transaction",
-        "category": "YNAB",
-        "description": "Create a new transaction in a selected budget and account via the YNAB API.",
-        "render_func": tools.ynab_create_transaction.render,
-        "requires_vault_path": False
-    },
-]
+# Use the fast metadata mode for tool discovery
+ui_tools_manager = UIToolsManager(use_fast_mode=True)
+TOOLS_METADATA = ui_tools_manager.get_tools()
 
 st.set_page_config(
     page_title="Codiak",
@@ -104,29 +23,38 @@ st.set_page_config(
 # --- Sidebar Navigation ---
 st.sidebar.title("Tools")
 
-# Use query params for navigation. This allows for link-based navigation.
-query_params = st.query_params
-
 # Set the initial tool or get it from query params
+query_params = st.query_params
 if 'tool' in query_params:
     st.session_state.selected_tool_id = query_params.get_all('tool')[0]
-else:
-    if 'selected_tool_id' not in st.session_state:
-        st.session_state.selected_tool_id = AVAILABLE_TOOLS[0]['id']
-    st.query_params.update(tool=st.session_state.selected_tool_id)
 
-# Create a dictionary to hold tools by category for the sidebar
+selected_tool_id = st.session_state.get('selected_tool_id')
+
+# Add a back button to the sidebar if a tool is selected
+if selected_tool_id:
+    if st.sidebar.button("← Back to Tool Directory", key="back_to_directory", use_container_width=True):
+        st.session_state.selected_tool_id = None
+        # Remove the 'tool' query param
+        st.query_params.clear()
+        st.rerun()
+
+# Group tools by category
 categories = {}
-for tool in AVAILABLE_TOOLS:
+for tool in TOOLS_METADATA:
     if tool['category'] not in categories:
         categories[tool['category']] = []
     categories[tool['category']].append(tool)
 
-# Display categories and links
+# --- Sidebar: Category Expanders with Buttons ---
 for category, tools_in_category in sorted(categories.items()):
-    st.sidebar.subheader(category)
-    for tool in tools_in_category:
-        st.sidebar.markdown(f"[{tool['short_title']}](?tool={tool['id']})")
+    expanded = any(tool['id'] == selected_tool_id for tool in tools_in_category)
+    with st.sidebar.expander(category, expanded=expanded):
+        for tool in tools_in_category:
+            is_selected = tool['id'] == selected_tool_id
+            if st.button(tool['short_title'], key=f"sidebar_btn_{tool['id']}", use_container_width=True):
+                st.session_state.selected_tool_id = tool['id']
+                st.query_params.update(tool=tool['id'])
+                st.rerun()
 
 # --- Main Page ---
 
@@ -135,22 +63,57 @@ if 'success_message' in st.session_state:
     st.success(st.session_state['success_message'])
     del st.session_state['success_message']
 
-# Find the selected tool's definition
-selected_tool_definition = next((t for t in AVAILABLE_TOOLS if t['id'] == st.session_state.selected_tool_id), None)
+selected_tool_definition = next((t for t in TOOLS_METADATA if t['id'] == selected_tool_id), None)
 
-# Render the selected tool
+RENDER_FUNC_MAP = {
+    'MCPClient': tools.mcp_client_ui.render,
+    'HtmlToMarkdown': tools.html_to_markdown.render,
+    'EmojiTagRenamer': tools.emoji_tag_renamer.render,
+    'FindUnupdatedLinks': tools.find_unupdated_links.render,
+    'RemoveEmojiLinks': tools.remove_emoji_links.render,
+    'ReplaceTag': tools.replace_tag.render,
+    'YnabListBudgets': tools.ynab_list_budgets.render,
+    'YnabGetTransactions': tools.ynab_get_transactions.render,
+    'YnabCreateTransaction': tools.ynab_create_transaction.render,
+}
+
+def show_tool_directory():
+    st.title("🛠️ Tool Directory")
+    st.write("Select a tool from the sidebar or launch one below.")
+    table_data = []
+    for tool in TOOLS_METADATA:
+        table_data.append({
+            "Tool": tool["short_title"],
+            "Category": tool["category"],
+            "Description": tool["description"],
+            "ID": tool["id"]
+        })
+    df = pd.DataFrame(table_data)
+    for _, row in df.iterrows():
+        col1, col2, col3 = st.columns([2, 2, 3])
+        with col1:
+            st.subheader(row["Tool"])
+            st.caption(f"📂 {row['Category']}")
+        with col2:
+            st.write(row["Description"])
+        with col3:
+            if st.button("Launch", key=f"launch_{row['ID']}", use_container_width=True):
+                st.session_state.selected_tool_id = row['ID']
+                st.query_params.update(tool=row['ID'])
+                st.rerun()
+        st.divider()
+
 if selected_tool_definition:
-    # Display the tool's title and description from the metadata
     st.title(selected_tool_definition['long_title'])
     st.write(selected_tool_definition['description'])
     st.divider()
-
-    # Call the tool's render function
-    render_func = selected_tool_definition['render_func']
-    if selected_tool_definition['requires_vault_path']:
-        render_func(DEFAULT_VAULT_PATH)
+    render_func = RENDER_FUNC_MAP.get(selected_tool_definition['id'])
+    if render_func:
+        if selected_tool_definition.get('requires_vault_path'):
+            render_func(DEFAULT_VAULT_PATH)
+        else:
+            render_func()
     else:
-        render_func()
+        st.error("Render function not found for this tool.")
 else:
-    st.error("Tool not found. Please select a tool from the sidebar.")
-    st.stop()
+    show_tool_directory()
