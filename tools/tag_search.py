@@ -6,6 +6,7 @@ def render(vault_path_default):
     st.write("Search for notes containing any of the specified tags in your Obsidian vault.")
     vault_path = st.text_input("Obsidian Vault Path", value=vault_path_default, key="vault_path_tag_search")
     tags_input = st.text_input("Tags to search for (comma or space separated, with or without #)", value="")
+    exclude_templates = st.checkbox("Exclude notes starting with 'template'", value=True)
     search_btn = st.button("Search for Tags")
     tags = []
     if tags_input:
@@ -23,6 +24,8 @@ def render(vault_path_default):
                 for root, _, files in os.walk(vault_path):
                     for file in files:
                         if file.endswith('.md'):
+                            if exclude_templates and file.lower().startswith('template'):
+                                continue
                             total_files += 1
             progress_bar = st.progress(0)
             status_text = st.empty()
@@ -31,6 +34,8 @@ def render(vault_path_default):
             for root, _, files in os.walk(vault_path):
                 for file in files:
                     if file.endswith('.md'):
+                        if exclude_templates and file.lower().startswith('template'):
+                            continue
                         scanned += 1
                         file_path = os.path.join(root, file)
                         with open(file_path, 'r', encoding='utf-8') as f:
@@ -63,12 +68,12 @@ def render(vault_path_default):
                         progress_bar.progress(progress)
                         status_text.text(f"Scanned {scanned} of {total_files} notes...")
             st.session_state['tag_search_results'] = found
-            st.session_state['tag_search_params'] = {'vault_path': vault_path, 'tags': tags}
+            st.session_state['tag_search_params'] = {'vault_path': vault_path, 'tags': tags, 'exclude_templates': exclude_templates}
             progress_bar.empty()
             status_text.empty()
     # Display results
     results = st.session_state.get('tag_search_results', [])
-    params = st.session_state.get('tag_search_params', {'vault_path': vault_path, 'tags': tags})
+    params = st.session_state.get('tag_search_params', {'vault_path': vault_path, 'tags': tags, 'exclude_templates': True})
     if results:
         st.success(f"Found {len(results)} notes with tags: {', '.join(params['tags'])}")
         import pandas as pd
