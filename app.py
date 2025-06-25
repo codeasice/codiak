@@ -3,12 +3,23 @@ import os
 from dotenv import load_dotenv
 
 import tools
+from tools.mcp_client_tool import MCPClientTool
+import asyncio
 
 load_dotenv()
 DEFAULT_VAULT_PATH = os.getenv('OB_VAULT_PATH', './vault')
 
 # A list of all available tools in a structured format
 AVAILABLE_TOOLS = [
+    {
+        "id": "MCPClient",
+        "short_title": "MCP Client",
+        "long_title": "MCP Client",
+        "category": "MCP",
+        "description": "An interactive client to send requests to MCP servers.",
+        "render_func": tools.mcp_client_ui.render,
+        "requires_vault_path": False
+    },
     {
         "id": "HtmlToMarkdown",
         "short_title": "HTML to Markdown",

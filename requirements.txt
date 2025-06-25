@@ -4,3 +4,8 @@ python-dotenv>=1.0.0  # For loading .env environment variables
 streamlit-lexical @ git+https://github.com/musubi-labs/streamlit_lexical.git
 ynab>=1.4.0 # For YNAB API
 lxml>=4.9.3 # For HTML parsing
+langgraph
+langchain-core
+langchain-anthropic
+langchain-aws
+langchain-mcp-adapters
