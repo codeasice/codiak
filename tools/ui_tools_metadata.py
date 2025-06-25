@@ -74,6 +74,14 @@ UI_TOOLS_METADATA = [
         "description": "Create a new transaction in a selected budget and account via the YNAB API.",
         "requires_vault_path": False
     },
+    {
+        "id": "TagSearch",
+        "short_title": "Tag Search",
+        "long_title": "Tag Search in Obsidian Notes",
+        "category": "Obsidian",
+        "description": "Search notes in your Obsidian vault that contain any of the specified tags (YAML or body).",
+        "requires_vault_path": True
+    },
 ]
 
 def get_tools_metadata_fast():

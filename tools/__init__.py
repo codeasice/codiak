@@ -8,3 +8,4 @@ from . import ynab_get_transactions
 from . import ynab_list_budgets
 from . import mcp_client_ui
 from . import mcp_client_tool
+from . import tag_search

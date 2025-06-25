@@ -75,6 +75,7 @@ RENDER_FUNC_MAP = {
     'YnabListBudgets': tools.ynab_list_budgets.render,
     'YnabGetTransactions': tools.ynab_get_transactions.render,
     'YnabCreateTransaction': tools.ynab_create_transaction.render,
+    'TagSearch': tools.tag_search.render,
 }
 
 def show_tool_directory():
