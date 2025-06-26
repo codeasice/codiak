@@ -1,6 +1,6 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: false
 ---
 # How to Add New Tools to the Codiak App
@@ -99,6 +99,7 @@ RENDER_FUNC_MAP = {
 2. Add metadata to `tools/ui_tools_metadata.py`.
 3. Add your tool to `RENDER_FUNC_MAP` in `app.py`.
 4. Run the app and test!
+
 
 
 
