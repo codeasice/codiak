@@ -82,6 +82,30 @@ UI_TOOLS_METADATA = [
         "description": "Search notes in your Obsidian vault that contain any of the specified tags (YAML or body).",
         "requires_vault_path": True
     },
+    {
+        "id": "HomeAssistantSensors",
+        "short_title": "HA Sensors",
+        "long_title": "Home Assistant Sensors",
+        "category": "Home Automation",
+        "description": "Connects to Home Assistant and lists all sensor entities.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "SmartThingsListDevices",
+        "short_title": "ST Devices",
+        "long_title": "SmartThings Devices",
+        "category": "Home Automation",
+        "description": "Connects to SmartThings and lists all devices.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "SmartThingsDashboard",
+        "short_title": "ST Dashboard",
+        "long_title": "SmartThings Dashboard",
+        "category": "Home Automation",
+        "description": "Dashboard for SmartThings devices grouped by type.",
+        "requires_vault_path": False
+    },
 ]
 
 def get_tools_metadata_fast():

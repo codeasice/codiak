@@ -9,3 +9,4 @@ langchain-core
 langchain-anthropic
 langchain-aws
 langchain-mcp-adapters
+requests>=2.25.1 # For Home Assistant API access

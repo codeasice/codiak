@@ -76,6 +76,9 @@ RENDER_FUNC_MAP = {
     'YnabGetTransactions': tools.ynab_get_transactions.render,
     'YnabCreateTransaction': tools.ynab_create_transaction.render,
     'TagSearch': tools.tag_search.render,
+    'HomeAssistantSensors': tools.home_assistant_sensors.render,
+    'SmartThingsListDevices': tools.smartthings_list_devices.render,
+    'SmartThingsDashboard': tools.smartthings_dashboard.render,
 }
 
 def show_tool_directory():

@@ -1,0 +1,107 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# How to Add New Tools to the Codiak App
+
+This document describes the process for creating and registering new UI tools in the Codiak Streamlit app.
+
+## 1. Create Your Tool File
+- Place your new tool as a Python file in the `tools/` directory (e.g., `tools/my_new_tool.py`).
+- Your tool **must** define a `render` function. This function will be called by the app to display the tool's UI.
+- If your tool requires a vault path (e.g., for Obsidian tools), the `render` function should accept a single argument for the vault path. Otherwise, it should take no arguments.
+- **Do NOT include a title or description header in your `render` function** (e.g., do not call `st.header` or `st.write` for the tool's name/description). The main app will display the tool's title and description automatically.
+
+**Example:**
+```python
+# tools/my_new_tool.py
+import streamlit as st
+
+def render():
+    # Do NOT include st.header or st.write for the tool title/description here!
+    st.write("Hello from my new tool!")
+```
+
+Or, if you need the vault path:
+```python
+# tools/my_obsidian_tool.py
+import streamlit as st
+
+def render(vault_path):
+    st.write(f"Vault path: {vault_path}")
+```
+
+## 2. Register Tool Metadata
+- Open `tools/ui_tools_metadata.py`.
+- Add a new dictionary entry to the `UI_TOOLS_METADATA` list with the following fields:
+  - `id`: Unique string identifier for your tool (e.g., `MyNewTool`)
+  - `short_title`: Short name for the sidebar
+  - `long_title`: Full name for the main page
+  - `category`: Category for grouping in the sidebar (create a new one if needed)
+  - `description`: Brief description of what your tool does
+  - `requires_vault_path`: `True` if your tool needs a vault path argument, else `False`
+
+**Example:**
+```python
+{
+    "id": "MyNewTool",
+    "short_title": "My New Tool",
+    "long_title": "My New Tool for Codiak",
+    "category": "Utilities",
+    "description": "Does something useful.",
+    "requires_vault_path": False
+},
+```
+
+## 3. Register the Render Function
+- In `app.py`, update the `RENDER_FUNC_MAP` dictionary to map your tool's `id` to its render function:
+
+**Example:**
+```python
+RENDER_FUNC_MAP = {
+    ...
+    'MyNewTool': tools.my_new_tool.render,  # for id 'MyNewTool'
+}
+```
+
+- If your tool is named `tools/my_new_tool.py`, the import is `tools.my_new_tool.render`.
+- **This step is REQUIRED. If you skip it, you will see 'Render function not found for this tool.' in the UI.**
+
+## 4. How the Sidebar and Tool Directory Work
+- The sidebar automatically groups tools by `category` and displays them in expanders with buttons.
+- The main page shows the selected tool's UI, or a Tool Directory if no tool is selected.
+- No changes to the sidebar logic are needed when adding a new tool—just update the metadata and render map.
+
+## 5. Testing Your Tool
+- Run the app (`streamlit run app.py`).
+- Your tool should appear in the sidebar under its category.
+- Click the tool to launch it. If you see errors, check your `render` function and metadata.
+
+## 6. Naming and Conventions
+- Tool `id` should be unique and use CamelCase (e.g., `MyNewTool`).
+- File names should be snake_case (e.g., `my_new_tool.py`).
+- Categories are free-form but should be reused if possible.
+- Descriptions should be concise and helpful.
+
+## 7. Advanced: Arguments and Special Cases
+- If your tool needs special arguments, handle them inside the `render` function. Only `vault_path` is passed automatically if `requires_vault_path` is `True`.
+- If you need to pass other arguments, use Streamlit widgets to collect user input.
+
+## 8. No App Logic Changes Needed
+- You do **not** need to modify the main app logic to add a new tool—just update the metadata and render map.
+- If you want to automate the render function mapping, consider using `getattr` and dynamic imports, but the current approach is explicit for clarity.
+
+---
+
+**Summary:**
+1. Add your tool file to `tools/` with a `render` function (no title/description header).
+2. Add metadata to `tools/ui_tools_metadata.py`.
+3. Add your tool to `RENDER_FUNC_MAP` in `app.py`.
+4. Run the app and test!
+
+
+
+
+
+
