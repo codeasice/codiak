@@ -79,6 +79,10 @@ RENDER_FUNC_MAP = {
     'HomeAssistantSensors': tools.home_assistant_sensors.render,
     'SmartThingsListDevices': tools.smartthings_list_devices.render,
     'SmartThingsDashboard': tools.smartthings_dashboard.render,
+    'HomeAssistantDashboard': tools.home_assistant_dashboard.render,
+    'ItemsToLinks': tools.items_to_links.render,
+    'MarkdownStripper': tools.markdown_stripper.render,
+    'ColorSwatchInjector': tools.colorswatch_injector.render,
 }
 
 def show_tool_directory():

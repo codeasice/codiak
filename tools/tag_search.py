@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 from tools.tag_search_util import find_notes_with_tags
+import urllib.parse
 
 def render(vault_path_default):
     st.write("Search for notes containing any of the specified tags in your Obsidian vault.")
@@ -76,8 +77,33 @@ def render(vault_path_default):
     params = st.session_state.get('tag_search_params', {'vault_path': vault_path, 'tags': tags, 'exclude_templates': True})
     if results:
         st.success(f"Found {len(results)} notes with tags: {', '.join(params['tags'])}")
-        import pandas as pd
-        table_data = [{"Note Name": r["title"], "Full Path": r["full_path"]} for r in results]
-        st.dataframe(pd.DataFrame(table_data), use_container_width=True)
+        # Scrollable HTML table with clickable links
+        tool_id = st.session_state.get('selected_tool_id', 'TagSearch')
+        table_html = '''<div style="max-height:300px;overflow:auto;border:1px solid #ddd;"><table style="width:100%;border-collapse:collapse;">
+        <thead><tr><th style='text-align:left;padding:4px 8px;'>Note Name</th><th style='text-align:left;padding:4px 8px;'>Full Path</th></tr></thead><tbody>'''
+        for i, r in enumerate(results):
+            note_id = urllib.parse.quote(r["full_path"])
+            table_html += f"<tr><td style='padding:2px 8px;'><a href='?tool={tool_id}&note={note_id}' target='_self'>{r['title']}</a></td><td style='padding:2px 8px;font-size:90%;color:#888'>{r['full_path']}</td></tr>"
+        table_html += "</tbody></table></div>"
+        st.markdown(table_html, unsafe_allow_html=True)
+        # Handle link click by checking query params (new API)
+        query_params = st.query_params
+        expanded_note = None
+        if 'note' in query_params:
+            expanded_note = urllib.parse.unquote(query_params.get_all('note')[0])
+            st.session_state["expanded_note"] = expanded_note
+        else:
+            expanded_note = st.session_state.get("expanded_note")
+        # Show note content below the table if a note is selected
+        if expanded_note:
+            note = next((n for n in results if n["full_path"] == expanded_note), None)
+            if note:
+                st.markdown(f"---\n### {note['title']}")
+                try:
+                    with open(note["full_path"], "r", encoding="utf-8") as f:
+                        note_content = f.read()
+                    st.markdown(note_content)
+                except Exception as e:
+                    st.error(f"Error reading note: {e}")
     elif search_btn and not results:
         st.info("No notes found matching the specified tags.")

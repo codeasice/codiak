@@ -12,3 +12,7 @@ from . import tag_search
 from . import home_assistant_sensors
 from . import smartthings_list_devices
 from . import smartthings_dashboard
+from . import home_assistant_dashboard
+from . import items_to_links
+from . import markdown_stripper
+from . import colorswatch_injector

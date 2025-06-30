@@ -106,6 +106,38 @@ UI_TOOLS_METADATA = [
         "description": "Dashboard for SmartThings devices grouped by type.",
         "requires_vault_path": False
     },
+    {
+        "id": "HomeAssistantDashboard",
+        "short_title": "HA Dashboard",
+        "long_title": "Home Assistant Dashboard",
+        "category": "Home Automation",
+        "description": "Dashboard for Home Assistant entities grouped by type, with toggling for lights and switches.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "ItemsToLinks",
+        "short_title": "Items to Links",
+        "long_title": "Convert List Items to Obsidian Links",
+        "category": "Note Taking",
+        "description": "Converts a list of items (one per line) into Obsidian-style links ([[item]]).",
+        "requires_vault_path": False
+    },
+    {
+        "id": "MarkdownStripper",
+        "short_title": "Markdown Stripper",
+        "long_title": "Remove Markdown Formatting Elements",
+        "category": "Note Taking",
+        "description": "Remove selected markdown formatting (headings, lists, bold, etc.) from pasted text.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "ColorSwatchInjector",
+        "short_title": "Color Swatch Injector",
+        "long_title": "Inject Color Swatches into Markdown Lists",
+        "category": "Note Taking",
+        "description": "Augments markdown color lists with color swatches next to each color name.",
+        "requires_vault_path": False
+    },
 ]
 
 def get_tools_metadata_fast():
