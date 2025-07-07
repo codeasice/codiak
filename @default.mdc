@@ -1,0 +1,148 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Cursor Rule: Building Modular Streamlit Applications
+
+## Purpose
+To provide a scalable and maintainable pattern for building Streamlit applications with multiple, distinct tools or pages. This approach uses a centralized tool registry and URL-based navigation, moving away from monolithic `if/elif` structures.
+
+---
+
+### 1. The Problem with Simple `if/elif` Structures
+For applications with many tools, a large `if/elif` block in the main app file becomes difficult to manage, read, and extend. It tightly couples the navigation logic with the tool's implementation.
+
+---
+
+### 2. The Modular Tool Pattern
+This pattern decouples the application's structure from the tools themselves.
+
+**Core Components:**
+- **Main App (`app.py`):** Handles navigation, layout, and calling the appropriate tool.
+- **Tool Directory (`tools/`):** A directory containing one Python file for each tool.
+- **Tool Registry:** A list of dictionaries in `app.py` that defines all available tools and their metadata.
+
+---
+
+### 3. Step-by-Step Implementation
+
+#### Step 3.1: Define the Tool Registry
+In `app.py`, create a list of dictionaries, where each dictionary represents a tool. This registry is the single source of truth for all tools in the application.
+
+**Example `AVAILABLE_TOOLS` list:**
+```python
+# In app.py
+import tools # Your tools package
+
+AVAILABLE_TOOLS = [
+    {
+        "id": "MyTool1",
+        "short_title": "My First Tool",
+        "long_title": "A Longer, More Descriptive Title for My First Tool",
+        "category": "Data Analysis",
+        "description": "This tool performs a specific data analysis task.",
+        "render_func": tools.my_tool_1.render,
+        "requires_vault_path": False # Example of custom metadata
+    },
+    {
+        "id": "MyTool2",
+        "short_title": "My Second Tool",
+        "long_title": "A Detailed Title for the Second Amazing Tool",
+        "category": "Data Visualization",
+        "description": "This tool visualizes a dataset in a unique way.",
+        "render_func": tools.my_tool_2.render,
+        "requires_vault_path": True
+    },
+]
+```
+
+#### Step 3.2: Create Individual Tool Files
+Each tool lives in its own file inside the `tools/` directory. Each file should have a `render()` function that contains the tool's Streamlit UI and logic.
+
+**Example `tools/my_tool_1.py`:**
+```python
+# In tools/my_tool_1.py
+import streamlit as st
+
+def render():
+    st.write("This is the UI for My First Tool.")
+    # Add your tool's logic and Streamlit components here
+    if st.button("Analyze Data"):
+        st.success("Analysis complete!")
+```
+To make tools easily importable, create an `__init__.py` in the `tools` directory to expose all tool modules.
+
+**Example `tools/__init__.py`:**
+```python
+from . import my_tool_1
+from . import my_tool_2
+# ... import other tools
+```
+
+
+#### Step 3.3: Implement URL-Based Navigation in the Sidebar
+In `app.py`, use `st.query_params` to manage the application's state. The sidebar should generate links that set a `tool` query parameter in the URL.
+
+```python
+# In app.py
+import streamlit as st
+
+st.sidebar.title("Tools")
+
+# Use query params for navigation
+query_params = st.query_params
+if 'tool' not in query_params:
+    st.session_state.selected_tool_id = AVAILABLE_TOOLS[0]['id']
+    st.query_params.update(tool=st.session_state.selected_tool_id)
+else:
+    st.session_state.selected_tool_id = query_params.get_all('tool')[0]
+
+# Group tools by category
+categories = {}
+for tool in AVAILABLE_TOOLS:
+    categories.setdefault(tool['category'], []).append(tool)
+
+# Display links
+for category, tools_in_category in sorted(categories.items()):
+    st.sidebar.subheader(category)
+    for tool in tools_in_category:
+        st.sidebar.markdown(f"[{tool['short_title']}](?tool={tool['id']})")
+```
+
+#### Step 3.4: Create the Main Rendering Logic
+In `app.py`, replace the `if/elif` block with a lookup in your `AVAILABLE_TOOLS` list.
+
+```python
+# In app.py
+
+# Find the selected tool's definition
+selected_tool_definition = next(
+    (t for t in AVAILABLE_TOOLS if t['id'] == st.session_state.selected_tool_id),
+    None
+)
+
+# Render the tool
+if selected_tool_definition:
+    # Display title and description from metadata
+    st.title(selected_tool_definition['long_title'])
+    st.write(selected_tool_definition['description'])
+    st.divider()
+
+    # Call the tool's render function, passing arguments if needed
+    render_func = selected_tool_definition['render_func']
+    if selected_tool_definition.get('requires_vault_path', False):
+        render_func(DEFAULT_VAULT_PATH) # Example argument
+    else:
+        render_func()
+else:
+    st.error("Tool not found. Please select a tool from the sidebar.")
+```
+
+---
+
+### Summary
+This pattern leads to:
+- **Scalability:** Adding a new tool is as simple as creating a new file and adding an entry to the `AVAILABLE_TOOLS` list. No changes are needed in the main navigation or rendering logic.
+- **Maintainability:** Code for each tool is isolated, making it easier to debug and update. `app.py` remains clean and focused on orchestration.
+- **Deep Linking:** Users can navigate directly to a specific tool using its URL.

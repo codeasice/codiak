@@ -8,17 +8,28 @@
 import streamlit as st
 import re
 
-def items_to_links(input_text: str) -> str:
+def items_to_links(input_text: str, exclude_numbers: bool = False) -> str:
     """
     Converts each line in the input text to a link in the format [[item]].
+    Optionally excludes leading numbers and punctuation from each line.
     Blank lines are ignored in the output.
     Args:
         input_text (str): Multiline string with one item per line.
+        exclude_numbers (bool): If True, remove leading numbers and punctuation.
     Returns:
         str: Multiline string with each item converted to [[item]].
     """
     lines = input_text.strip().splitlines()
-    return '\n'.join(f'[[{line.strip()}]]' for line in lines if line.strip())
+    processed_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if exclude_numbers:
+            # Remove leading numbers, dots, parentheses, and whitespace (e.g., '1. ', '2) ', '3 - ')
+            stripped = re.sub(r'^\s*\d+[.)\-:]*\s*', '', stripped)
+        processed_lines.append(f'[[{stripped}]]')
+    return '\n'.join(processed_lines)
 
 def links_to_items(input_text: str) -> str:
     """
@@ -42,7 +53,11 @@ def render():
         height=200,
         key="items_to_links_input",
     )
-
+    exclude_numbers = st.checkbox(
+        "Exclude leading numbers from each line (e.g., '1. Item' → 'Item')",
+        value=False,
+        key="exclude_numbers_checkbox",
+    )
     col1, col2, col3 = st.columns([2, 2, 2])
     with col2:
         add_links = st.button("Add Links", key="add_links_btn")
@@ -51,7 +66,7 @@ def render():
 
     output = ""
     if add_links:
-        output = items_to_links(input_text)
+        output = items_to_links(input_text, exclude_numbers=exclude_numbers)
     elif remove_links:
         output = links_to_items(input_text)
 

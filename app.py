@@ -83,6 +83,9 @@ RENDER_FUNC_MAP = {
     'ItemsToLinks': tools.items_to_links.render,
     'MarkdownStripper': tools.markdown_stripper.render,
     'ColorSwatchInjector': tools.colorswatch_injector.render,
+    'NmapNetworkAnalyzer': tools.nmap_network_analyzer.render,
+    'YnabUnknownCategoryTransactions': tools.ynab_unknown_category_transactions.render,
+    'HomeAutomationCategorizer': tools.home_automation_categorizer.render,
 }
 
 def show_tool_directory():

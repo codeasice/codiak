@@ -16,3 +16,6 @@ from . import home_assistant_dashboard
 from . import items_to_links
 from . import markdown_stripper
 from . import colorswatch_injector
+from . import nmap_network_analyzer
+from . import ynab_unknown_category_transactions
+from . import home_automation_categorizer

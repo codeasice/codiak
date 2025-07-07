@@ -75,6 +75,14 @@ UI_TOOLS_METADATA = [
         "requires_vault_path": False
     },
     {
+        "id": "YnabUnknownCategoryTransactions",
+        "short_title": "YNAB Unknown Category Txns",
+        "long_title": "YNAB Transactions with Unknown Category",
+        "category": "YNAB",
+        "description": "Show transactions from a YNAB budget where the category is unknown (category_id not found).",
+        "requires_vault_path": False
+    },
+    {
         "id": "TagSearch",
         "short_title": "Tag Search",
         "long_title": "Tag Search in Obsidian Notes",
@@ -136,6 +144,22 @@ UI_TOOLS_METADATA = [
         "long_title": "Inject Color Swatches into Markdown Lists",
         "category": "Note Taking",
         "description": "Augments markdown color lists with color swatches next to each color name.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "NmapNetworkAnalyzer",
+        "short_title": "Network Analyzer",
+        "long_title": "Network Analyzer (nmap)",
+        "category": "Network Analysis",
+        "description": "Analyze the current network using nmap. Scan for live hosts and open ports.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "HomeAutomationCategorizer",
+        "short_title": "HA Categorizer",
+        "long_title": "Home Automation List Categorizer",
+        "category": "Home Automation",
+        "description": "Categorizes a list of home automation items by their type based on line suffix.",
         "requires_vault_path": False
     },
 ]
