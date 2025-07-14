@@ -11,3 +11,4 @@ langchain-aws
 langchain-mcp-adapters
 requests>=2.25.1 # For Home Assistant API access
 python-nmap>=0.7.1 # For network scanning
+tabulate

@@ -1,6 +1,29 @@
 import streamlit as st
 import re
 
+def strip_markdown_table(text: str) -> str:
+    """
+    Strips markdown table formatting, returning just the cell contents as plain lines.
+    """
+    lines = text.strip().splitlines()
+    output_lines = []
+    for line in lines:
+        # Skip table separator lines (e.g., | --- |)
+        if re.match(r'^\s*\|?\s*(:?-+:?\s*\|)+\s*(:?-+:?\s*)?$', line):
+            continue
+        # Remove leading/trailing pipes and split by pipe
+        if '|' in line:
+            cells = [cell.strip() for cell in line.strip('|').split('|')]
+            # Only add non-empty cells
+            for cell in cells:
+                if cell:
+                    output_lines.append(cell)
+        else:
+            # Not a table line, keep as is
+            if line.strip():
+                output_lines.append(line.strip())
+    return '\n'.join(output_lines)
+
 def strip_markdown(text, options):
     # Remove H1, H2, H3
     if options.get('h1'):
@@ -33,6 +56,9 @@ def strip_markdown(text, options):
     # Remove horizontal rules
     if options.get('hr'):
         text = re.sub(r'^---+$', '', text, flags=re.MULTILINE)
+    # Remove tables
+    if options.get('table'):
+        text = strip_markdown_table(text)
     return text
 
 def render():
@@ -57,6 +83,7 @@ def render():
         checkboxes = st.checkbox("Checkboxes [ ] [x]", value=True, key="strip_checkboxes")
         bold = st.checkbox("Bold (**text**)", value=True, key="strip_bold")
         italic = st.checkbox("Italic (*text*)", value=True, key="strip_italic")
+        table = st.checkbox("Table (| col |)", value=False, key="strip_table")
     with col3:
         inline_code = st.checkbox("Inline Code (`code`)", value=True, key="strip_inline_code")
         code_block = st.checkbox("Code Block (```)", value=True, key="strip_code_block")
@@ -75,6 +102,7 @@ def render():
         'code_block': code_block,
         'blockquote': blockquote,
         'hr': hr,
+        'table': table,
     }
 
     strip_btn = st.button("Remove Selected Formatting", key="strip_markdown_btn")

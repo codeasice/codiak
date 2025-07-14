@@ -162,6 +162,22 @@ UI_TOOLS_METADATA = [
         "description": "Categorizes a list of home automation items by their type based on line suffix.",
         "requires_vault_path": False
     },
+    {
+        "id": "MarkdownTableStripper",
+        "short_title": "Table Stripper",
+        "long_title": "Markdown Table Stripper",
+        "category": "Note Taking",
+        "description": "Strips markdown table formatting, outputting just the cell contents as plain lines.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "TableCreator",
+        "short_title": "Table Creator",
+        "long_title": "Markdown Table Creator/Joiner",
+        "category": "Note Taking",
+        "description": "Create a markdown table from a list or join two tables (append or align columns).",
+        "requires_vault_path": False
+    },
 ]
 
 def get_tools_metadata_fast():

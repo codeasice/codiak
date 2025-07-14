@@ -19,3 +19,4 @@ from . import colorswatch_injector
 from . import nmap_network_analyzer
 from . import ynab_unknown_category_transactions
 from . import home_automation_categorizer
+from . import table_creator

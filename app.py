@@ -86,6 +86,7 @@ RENDER_FUNC_MAP = {
     'NmapNetworkAnalyzer': tools.nmap_network_analyzer.render,
     'YnabUnknownCategoryTransactions': tools.ynab_unknown_category_transactions.render,
     'HomeAutomationCategorizer': tools.home_automation_categorizer.render,
+    'TableCreator': tools.table_creator.render,
 }
 
 def show_tool_directory():
