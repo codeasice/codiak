@@ -178,6 +178,14 @@ UI_TOOLS_METADATA = [
         "description": "Create a markdown table from a list or join two tables (append or align columns).",
         "requires_vault_path": False
     },
+    {
+        "id": "ChangesInRange",
+        "short_title": "Changes in Range",
+        "long_title": "Find Notes and Tasks Changed in Date Range",
+        "category": "Obsidian",
+        "description": "Find all Obsidian notes and completed tasks within a date or week range. Compile selected notes into a single text area.",
+        "requires_vault_path": True
+    },
 ]
 
 def get_tools_metadata_fast():

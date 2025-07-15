@@ -87,6 +87,7 @@ RENDER_FUNC_MAP = {
     'YnabUnknownCategoryTransactions': tools.ynab_unknown_category_transactions.render,
     'HomeAutomationCategorizer': tools.home_automation_categorizer.render,
     'TableCreator': tools.table_creator.render,
+    'ChangesInRange': tools.changes_in_range.render,
 }
 
 def show_tool_directory():

@@ -1,8 +1,3 @@
----
-description:
-globs:
-alwaysApply: false
----
 # Cursor Rule: Building Modular Streamlit Applications
 
 ## Purpose
@@ -142,6 +137,30 @@ else:
 ---
 
 ### Summary
+This pattern leads to:
+- **Scalability:** Adding a new tool is as simple as creating a new file and adding an entry to the `AVAILABLE_TOOLS` list. No changes are needed in the main navigation or rendering logic.
+- **Maintainability:** Code for each tool is isolated, making it easier to debug and update. `app.py` remains clean and focused on orchestration.
+- **Deep Linking:** Users can navigate directly to a specific tool using its URL.
+
+---
+
+## Troubleshooting: 'Render function not found for this tool.'
+
+If you see the error 'Render function not found for this tool.' when launching a new tool in the Codiak app, check the following:
+
+1. **Tool File**: Your tool must be in the `tools/` directory and define a `render` function (with or without a `vault_path` argument).
+2. **Metadata**: Add your tool's metadata to `tools/ui_tools_metadata.py` with a unique `id` and correct `requires_vault_path` value.
+3. **Render Map**: Add your tool's `id` and render function to the `RENDER_FUNC_MAP` dictionary in `app.py`, e.g.:
+   ```python
+   'MyNewTool': tools.my_new_tool.render,
+   ```
+   This step is REQUIRED. If you skip it, the UI cannot find your tool's render function.
+4. **Import**: Ensure your tool is imported in `tools/__init__.py` if needed for dynamic loading.
+
+**Summary:**
+- Always update the render map in `app.py` when adding a new tool.
+- See the `new-tools` rule for the full checklist.
+
 This pattern leads to:
 - **Scalability:** Adding a new tool is as simple as creating a new file and adding an entry to the `AVAILABLE_TOOLS` list. No changes are needed in the main navigation or rendering logic.
 - **Maintainability:** Code for each tool is isolated, making it easier to debug and update. `app.py` remains clean and focused on orchestration.
