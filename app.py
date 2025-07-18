@@ -88,6 +88,7 @@ RENDER_FUNC_MAP = {
     'HomeAutomationCategorizer': tools.home_automation_categorizer.render,
     'TableCreator': tools.table_creator.render,
     'ChangesInRange': tools.changes_in_range.render,
+    'IncompleteTasksInRange': tools.incomplete_tasks_in_range.render,
 }
 
 def show_tool_directory():

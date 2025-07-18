@@ -186,6 +186,14 @@ UI_TOOLS_METADATA = [
         "description": "Find all Obsidian notes and completed tasks within a date or week range. Compile selected notes into a single text area.",
         "requires_vault_path": True
     },
+    {
+        "id": "IncompleteTasksInRange",
+        "short_title": "Incomplete Tasks in Range",
+        "long_title": "Find Incomplete Tasks in Date Range",
+        "category": "Obsidian",
+        "description": "Find incomplete tasks in notes with titles or sections starting with dates in the specified range.",
+        "requires_vault_path": True
+    },
 ]
 
 def get_tools_metadata_fast():

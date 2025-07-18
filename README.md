@@ -24,6 +24,7 @@ Codiak is a Streamlit-based app that provides a unified interface for managing a
 - **Remove Emoji Links**: Remove links from your notes that contain emojis in the link text or destination.
 - **Replace Tag**: Perform a find-and-replace operation for a specific tag across all notes in your vault.
 - **Tag Search**: Search notes in your vault that contain any of the specified tags (YAML or body).
+- **Incomplete Tasks in Range**: Find incomplete tasks in notes with titles or sections starting with dates in the specified range.
 
 ### Home Automation
 - **Home Assistant Sensors**: Connect to Home Assistant and list all sensor entities.
@@ -85,6 +86,7 @@ Codiak is a Streamlit-based app that provides a unified interface for managing a
 | Remove Emoji Links     | Obsidian        | Remove links with emojis from notes |
 | Replace Tag            | Obsidian        | Find-and-replace tags across notes |
 | Tag Search             | Obsidian        | Search notes by tags (YAML/body) |
+| Incomplete Tasks in Range | Obsidian    | Find incomplete tasks in notes with date-based titles or sections |
 | YNAB List Budgets      | YNAB            | List all YNAB budgets |
 | YNAB Get Transactions  | YNAB            | Fetch transactions from a YNAB budget |
 | YNAB Create Transaction| YNAB            | Create a new YNAB transaction |
