@@ -22,3 +22,12 @@ style:
 notes:
   - Do not commit .env or any files containing sensitive or user-specific information.
   - Follow PEP8 for Python code style.
+  - Always use the 'codiak' AWS profile for all AWS service connections.
+  - Configure AWS credentials using: aws configure --profile codiak
+
+aws-connection:
+  - Always use boto3.Session(profile_name='codiak') for AWS service connections
+  - Include proper error handling for NoCredentialsError and ClientError
+  - Use the pattern: session = boto3.Session(profile_name='codiak'); return session.client('service_name')
+  - Provide clear error messages when credentials are missing or invalid
+  - Handle AWS API rate limits and retries appropriately

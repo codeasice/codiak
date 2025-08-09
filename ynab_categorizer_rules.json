@@ -1,0 +1,254 @@
+[
+  {
+    "match": "Netflix",
+    "type": "contains",
+    "category_id": "60d87b7f-ee27-4a14-8083-98ae57a15f00",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "Transfer : MyLowe's Rewards Credit Card",
+    "type": "startsWith",
+    "category_id": "1648fe38-3545-4667-b28a-bb040a67443f",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "Transfer : Tva Credit Union",
+    "type": "exact",
+    "category_id": "8f8c9eb9-8a32-4312-813d-8eeeb22c7fdc",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "Little Caesars",
+    "type": "startsWith",
+    "category_id": "dc8b80e8-afa4-43b6-b976-22d3779819ad",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "Test Transaction",
+    "type": "startsWith",
+    "category_id": "ff743fbd-cee6-42c2-9453-6ebec16eb058",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "OUTSCHOOL",
+    "type": "startsWith",
+    "category_id": "c4021fbd-ca3f-42bd-95d0-ff7aedd6ad22",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "SOKNO TACO CANTINA  KNOXVILLE       TNUS",
+    "type": "contains",
+    "category_id": "dc8b80e8-afa4-43b6-b976-22d3779819ad",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "MCS WINE & LIQUOR   KNOXVILLE",
+    "type": "contains",
+    "category_id": "f9fa8e21-a68b-4167-a251-95c5c7a6f378",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "ELEVENLABS.IO       ELEVENLABS.IO   NYUS",
+    "type": "contains",
+    "category_id": "56f6eac6-80fe-4570-84ca-57f7408a7842",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "SMOKY MOUNTAIN WINE KNOXVILLE       TNUS",
+    "type": "contains",
+    "category_id": "f9fa8e21-a68b-4167-a251-95c5c7a6f378",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "SQ *YASSIN'S FALAFE gosq.com        TNUS",
+    "type": "contains",
+    "category_id": "dc8b80e8-afa4-43b6-b976-22d3779819ad",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "MCDONALD'S ",
+    "type": "startsWith",
+    "category_id": "dc8b80e8-afa4-43b6-b976-22d3779819ad",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "PAYPAL ",
+    "type": "startsWith",
+    "category_id": "ff743fbd-cee6-42c2-9453-6ebec16eb058",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "CHICK-FIL-A",
+    "type": "startsWith",
+    "category_id": "dc8b80e8-afa4-43b6-b976-22d3779819ad",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "CHATGPT",
+    "type": "startsWith",
+    "category_id": "889e4476-777c-43d5-a023-b17632d5cf65",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "BLAZE PIZZA KNOXVIL KNOXVILLE       TNUS",
+    "type": "contains",
+    "category_id": "dc8b80e8-afa4-43b6-b976-22d3779819ad",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "Salsarita's Fresh Mex",
+    "type": "contains",
+    "category_id": "dc8b80e8-afa4-43b6-b976-22d3779819ad",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "Starbucks",
+    "type": "contains",
+    "category_id": "dc8b80e8-afa4-43b6-b976-22d3779819ad",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "Interest Charge",
+    "type": "contains",
+    "category_id": "8e648376-8f89-4f3d-ab37-b7c9e3fccbb0",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "STORE 2239",
+    "type": "contains",
+    "category_id": "2ee1e305-26e3-47d2-89a7-d9ce7381a361",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "Amazon Retail",
+    "type": "contains",
+    "category_id": "ff743fbd-cee6-42c2-9453-6ebec16eb058",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "BMRP South Grov TN 254A",
+    "type": "contains",
+    "category_id": "ff743fbd-cee6-42c2-9453-6ebec16eb058",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "CVS Pharmacy",
+    "type": "contains",
+    "category_id": "249245ce-301e-48e4-8462-a3db33df207d",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "Microsoft",
+    "type": "contains",
+    "category_id": "1d41995d-48ed-4f6e-ab16-21e4f8c81b36",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "Poshmark",
+    "type": "contains",
+    "category_id": "cf2902f7-c2be-4f92-b52e-b79eef0b361a",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "Old Navy",
+    "type": "contains",
+    "category_id": "cf2902f7-c2be-4f92-b52e-b79eef0b361a",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "Kiko",
+    "type": "contains",
+    "category_id": "dc8b80e8-afa4-43b6-b976-22d3779819ad",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "McDonald's",
+    "type": "contains",
+    "category_id": "dc8b80e8-afa4-43b6-b976-22d3779819ad",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "GREENLIGHT",
+    "type": "contains",
+    "category_id": "44b3836d-fe68-4054-a609-40bd6803ea1c",
+    "updated_at": "2025-07-21T20:36:25.458739",
+    "created_at": "2025-07-21T20:09:07.116695"
+  },
+  {
+    "match": "GoDaddy",
+    "type": "contains",
+    "category_id": "fdf72023-f652-4daa-9b22-b90169bbe15d",
+    "created_at": "2025-07-21T20:25:19.830630",
+    "updated_at": "2025-07-21T20:36:25.458739"
+  },
+  {
+    "match": "Cinebarre",
+    "type": "contains",
+    "category_id": "dc8b80e8-afa4-43b6-b976-22d3779819ad",
+    "created_at": "2025-07-21T20:26:11.036548",
+    "updated_at": "2025-07-21T20:36:25.458739"
+  },
+  {
+    "match": "Freddy's",
+    "type": "contains",
+    "category_id": "dc8b80e8-afa4-43b6-b976-22d3779819ad",
+    "created_at": "2025-07-21T20:30:36.835339",
+    "updated_at": "2025-07-21T20:36:25.458739"
+  },
+  {
+    "match": "Coulter Family Dentistry",
+    "type": "contains",
+    "category_id": "f073a391-2a33-4fc1-a8f6-a9fe9d6ecad9",
+    "created_at": "2025-07-21T20:32:25.108700",
+    "updated_at": "2025-07-21T20:36:25.458739"
+  },
+  {
+    "match": "The Sugar Queen",
+    "type": "contains",
+    "category_id": "dc8b80e8-afa4-43b6-b976-22d3779819ad",
+    "created_at": "2025-07-21T20:34:59.128899",
+    "updated_at": "2025-07-21T20:36:25.458739"
+  },
+  {
+    "match": "DOORDASH",
+    "type": "contains",
+    "category_id": "dc8b80e8-afa4-43b6-b976-22d3779819ad",
+    "created_at": "2025-07-21T20:36:02.620518",
+    "updated_at": "2025-07-21T20:36:25.458739"
+  },
+  {
+    "match": "THE BEE'S KNEES HAIRD",
+    "type": "contains",
+    "category_id": "ad966915-93f0-4c4a-a55d-ae540fa60489",
+    "created_at": "2025-07-21T20:36:25.458739",
+    "updated_at": "2025-07-21T20:36:25.458739"
+  }
+]

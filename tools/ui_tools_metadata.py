@@ -83,6 +83,14 @@ UI_TOOLS_METADATA = [
         "requires_vault_path": False
     },
     {
+        "id": "YnabCategorizer",
+        "short_title": "YNAB Categorizer",
+        "long_title": "YNAB Transaction Categorizer",
+        "category": "YNAB",
+        "description": "Streamline categorization of unassigned transactions using rules and AI assistance.",
+        "requires_vault_path": False
+    },
+    {
         "id": "TagSearch",
         "short_title": "Tag Search",
         "long_title": "Tag Search in Obsidian Notes",
@@ -193,6 +201,30 @@ UI_TOOLS_METADATA = [
         "category": "Obsidian",
         "description": "Find incomplete tasks in notes with titles or sections starting with dates in the specified range.",
         "requires_vault_path": True
+    },
+    {
+        "id": "AwsEc2Manager",
+        "short_title": "AWS EC2 Manager",
+        "long_title": "AWS EC2 Instance Manager",
+        "category": "AWS",
+        "description": "List and manage your AWS EC2 instances. View instance status and toggle them on/off.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "AwsCostMonitor",
+        "short_title": "AWS Cost Monitor",
+        "long_title": "AWS Cost Monitor",
+        "category": "AWS",
+        "description": "Monitor your AWS costs and spending patterns using AWS Cost Explorer. View costs by service and region.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "DndCharacterEditor",
+        "short_title": "D&D Character Editor",
+        "long_title": "D&D Character & Monster Editor",
+        "category": "Game Development",
+        "description": "Edit primary properties of D&D characters (hero.json, npc.json) and monsters (monster.json) with a comprehensive UI.",
+        "requires_vault_path": False
     },
 ]
 

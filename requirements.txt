@@ -3,6 +3,7 @@ streamlit>=1.27.0  # Web app framework
 python-dotenv>=1.0.0  # For loading .env environment variables
 streamlit-lexical @ git+https://github.com/musubi-labs/streamlit_lexical.git
 ynab>=1.4.0 # For YNAB API
+openai>=1.0.0 # For LLM integration
 lxml>=4.9.3 # For HTML parsing
 langgraph
 langchain-core
@@ -12,3 +13,4 @@ langchain-mcp-adapters
 requests>=2.25.1 # For Home Assistant API access
 python-nmap>=0.7.1 # For network scanning
 tabulate
+boto3>=1.26.0 # For AWS services

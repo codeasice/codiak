@@ -36,6 +36,7 @@ Codiak is a Streamlit-based app that provides a unified interface for managing a
 - **YNAB List Budgets**: Fetch and display a list of all your available budgets from the YNAB API.
 - **YNAB Get Transactions**: Select a budget and fetch a list of its recent transactions from the YNAB API.
 - **YNAB Create Transaction**: Create a new transaction in a selected budget and account via the YNAB API.
+- **YNAB Transaction Categorizer**: Streamline categorization of unassigned transactions using rules and AI assistance.
 
 ### Developer & Integration Tools
 - **MCP Client**: An interactive client to send requests to MCP servers.
@@ -90,6 +91,7 @@ Codiak is a Streamlit-based app that provides a unified interface for managing a
 | YNAB List Budgets      | YNAB            | List all YNAB budgets |
 | YNAB Get Transactions  | YNAB            | Fetch transactions from a YNAB budget |
 | YNAB Create Transaction| YNAB            | Create a new YNAB transaction |
+| YNAB Transaction Categorizer| YNAB            | Streamline categorization of unassigned transactions using rules and AI assistance |
 | Home Assistant Sensors | Home Automation | List all Home Assistant sensors |
 | Home Assistant Dashboard| Home Automation| Dashboard for Home Assistant entities |
 | SmartThings Devices    | Home Automation | List all SmartThings devices |

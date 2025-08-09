@@ -18,7 +18,12 @@ from . import markdown_stripper
 from . import colorswatch_injector
 from . import nmap_network_analyzer
 from . import ynab_unknown_category_transactions
+from . import ynab_categorizer
 from . import home_automation_categorizer
 from . import table_creator
 from . import changes_in_range
 from . import incomplete_tasks_in_range
+from . import aws_ec2_manager
+from . import aws_cost_monitor
+from . import dnd_character_editor
+from . import llm_utils

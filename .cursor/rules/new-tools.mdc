@@ -54,7 +54,19 @@ def render(vault_path):
 },
 ```
 
-## 3. Register the Render Function
+## 3. Import Your Tool Module
+- **CRITICAL**: Add your tool module to `tools/__init__.py` so it can be imported by the main app.
+- Add a line like `from . import my_new_tool` to the imports list in `tools/__init__.py`.
+
+**Example:**
+```python
+# In tools/__init__.py, add:
+from . import my_new_tool
+```
+
+- **This step is REQUIRED. If you skip it, you will get an AttributeError when the app tries to import your tool.**
+
+## 4. Register the Render Function
 - In `app.py`, update the `RENDER_FUNC_MAP` dictionary to map your tool's `id` to its render function:
 
 **Example:**
@@ -68,27 +80,27 @@ RENDER_FUNC_MAP = {
 - If your tool is named `tools/my_new_tool.py`, the import is `tools.my_new_tool.render`.
 - **This step is REQUIRED. If you skip it, you will see 'Render function not found for this tool.' in the UI.**
 
-## 4. How the Sidebar and Tool Directory Work
+## 5. How the Sidebar and Tool Directory Work
 - The sidebar automatically groups tools by `category` and displays them in expanders with buttons.
 - The main page shows the selected tool's UI, or a Tool Directory if no tool is selected.
 - No changes to the sidebar logic are needed when adding a new tool—just update the metadata and render map.
 
-## 5. Testing Your Tool
+## 6. Testing Your Tool
 - Run the app (`streamlit run app.py`).
 - Your tool should appear in the sidebar under its category.
 - Click the tool to launch it. If you see errors, check your `render` function and metadata.
 
-## 6. Naming and Conventions
+## 7. Naming and Conventions
 - Tool `id` should be unique and use CamelCase (e.g., `MyNewTool`).
 - File names should be snake_case (e.g., `my_new_tool.py`).
 - Categories are free-form but should be reused if possible.
 - Descriptions should be concise and helpful.
 
-## 7. Advanced: Arguments and Special Cases
+## 8. Advanced: Arguments and Special Cases
 - If your tool needs special arguments, handle them inside the `render` function. Only `vault_path` is passed automatically if `requires_vault_path` is `True`.
 - If you need to pass other arguments, use Streamlit widgets to collect user input.
 
-## 8. No App Logic Changes Needed
+## 9. No App Logic Changes Needed
 - You do **not** need to modify the main app logic to add a new tool—just update the metadata and render map.
 - If you want to automate the render function mapping, consider using `getattr` and dynamic imports, but the current approach is explicit for clarity.
 
@@ -97,8 +109,9 @@ RENDER_FUNC_MAP = {
 **Summary:**
 1. Add your tool file to `tools/` with a `render` function (no title/description header).
 2. Add metadata to `tools/ui_tools_metadata.py`.
-3. Add your tool to `RENDER_FUNC_MAP` in `app.py`.
-4. Run the app and test!
+3. **CRITICAL**: Add your tool module to `tools/__init__.py`.
+4. Add your tool to `RENDER_FUNC_MAP` in `app.py`.
+5. Run the app and test!
 
 
 

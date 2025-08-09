@@ -85,10 +85,14 @@ RENDER_FUNC_MAP = {
     'ColorSwatchInjector': tools.colorswatch_injector.render,
     'NmapNetworkAnalyzer': tools.nmap_network_analyzer.render,
     'YnabUnknownCategoryTransactions': tools.ynab_unknown_category_transactions.render,
+    'YnabCategorizer': tools.ynab_categorizer.render,
     'HomeAutomationCategorizer': tools.home_automation_categorizer.render,
     'TableCreator': tools.table_creator.render,
     'ChangesInRange': tools.changes_in_range.render,
     'IncompleteTasksInRange': tools.incomplete_tasks_in_range.render,
+    'AwsEc2Manager': tools.aws_ec2_manager.render,
+    'AwsCostMonitor': tools.aws_cost_monitor.render,
+    'DndCharacterEditor': tools.dnd_character_editor.render,
 }
 
 def show_tool_directory():
