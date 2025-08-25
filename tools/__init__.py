@@ -18,9 +18,16 @@ from . import markdown_stripper
 from . import colorswatch_injector
 from . import nmap_network_analyzer
 from . import ynab_unknown_category_transactions
-from . import ynab_categorizer
+# YNAB tools
+from . import ynab_rules
+from . import ynab_apply_rules
+from . import ynab_map_uncategorized
+from . import ynab_list_categories
+
+# Other tools
 from . import home_automation_categorizer
 from . import table_creator
+from . import markdown_table_converter
 from . import changes_in_range
 from . import incomplete_tasks_in_range
 from . import aws_ec2_manager

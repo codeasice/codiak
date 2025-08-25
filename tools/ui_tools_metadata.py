@@ -82,12 +82,37 @@ UI_TOOLS_METADATA = [
         "description": "Show transactions from a YNAB budget where the category is unknown (category_id not found).",
         "requires_vault_path": False
     },
+
     {
-        "id": "YnabCategorizer",
-        "short_title": "YNAB Categorizer",
-        "long_title": "YNAB Transaction Categorizer",
+        "id": "YnabRules",
+        "short_title": "YNAB Rules Manager",
+        "long_title": "YNAB Categorization Rules Manager",
         "category": "YNAB",
-        "description": "Streamline categorization of unassigned transactions using rules and AI assistance.",
+        "description": "Create and manage categorization rules for automatic transaction categorization.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "YnabApplyRules",
+        "short_title": "YNAB Auto-Categorize",
+        "long_title": "YNAB Apply Categorization Rules",
+        "category": "YNAB",
+        "description": "Find transactions that match your categorization rules and apply them automatically.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "YnabListCategories",
+        "short_title": "YNAB List Categories",
+        "long_title": "YNAB List All Categories",
+        "category": "YNAB",
+        "description": "View all categories in your YNAB budget with their IDs and structure.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "YnabMapUncategorized",
+        "short_title": "YNAB AI Categorizer",
+        "long_title": "YNAB AI-Assisted Transaction Categorization",
+        "category": "YNAB",
+        "description": "Use AI assistance to categorize transactions that don't match your rules.",
         "requires_vault_path": False
     },
     {
@@ -184,6 +209,14 @@ UI_TOOLS_METADATA = [
         "long_title": "Markdown Table Creator/Joiner",
         "category": "Note Taking",
         "description": "Create a markdown table from a list or join two tables (append or align columns).",
+        "requires_vault_path": False
+    },
+    {
+        "id": "MarkdownTableConverter",
+        "short_title": "Table Converter",
+        "long_title": "Markdown Table to Teams/Excel/Confluence Converter",
+        "category": "Note Taking",
+        "description": "Convert markdown tables to formats compatible with Microsoft Teams (HTML), Excel (CSV), and Confluence (HTML).",
         "requires_vault_path": False
     },
     {

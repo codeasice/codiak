@@ -1,18 +1,49 @@
 import streamlit as st
-import ynab
 import os
 import json
 import re
 from typing import List, Dict, Optional, Tuple
-from ynab.api.transactions_api import TransactionsApi
-from ynab.api.budgets_api import BudgetsApi
-from ynab.api.categories_api import CategoriesApi
-from ynab.models.save_transaction_with_optional_fields import SaveTransactionWithOptionalFields
-from ynab.models.save_transaction_with_id_or_import_id import SaveTransactionWithIdOrImportId
-from ynab.models.patch_transactions_wrapper import PatchTransactionsWrapper
 import time
 import random
 from datetime import datetime, timedelta
+
+# Import ynab only when needed to avoid import errors
+try:
+    import ynab
+    from ynab.api.transactions_api import TransactionsApi
+    from ynab.api.budgets_api import BudgetsApi
+    from ynab.api.categories_api import CategoriesApi
+    from ynab.models.save_transaction_with_optional_fields import SaveTransactionWithOptionalFields
+    from ynab.models.save_transaction_with_id_or_import_id import SaveTransactionWithIdOrImportId
+    from ynab.models.patch_transactions_wrapper import PatchTransactionsWrapper
+    YNAB_AVAILABLE = True
+except ImportError:
+    YNAB_AVAILABLE = False
+    # Create dummy classes for type checking
+    class DummyYNAB:
+        class Configuration:
+            def __init__(self, access_token):
+                pass
+        class ApiClient:
+            def __init__(self, config):
+                pass
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                pass
+        class exceptions:
+            class UnauthorizedException(Exception):
+                pass
+            class ApiException(Exception):
+                pass
+
+    ynab = DummyYNAB()
+    TransactionsApi = None
+    BudgetsApi = None
+    CategoriesApi = None
+    SaveTransactionWithOptionalFields = None
+    SaveTransactionWithIdOrImportId = None
+    PatchTransactionsWrapper = None
 
 # Import shared LLM utilities
 from .llm_utils import get_llm_suggestion, display_llm_logs, clear_llm_logs
@@ -20,17 +51,29 @@ from .llm_utils import get_llm_suggestion, display_llm_logs, clear_llm_logs
 # Import config helper
 from .ynab_categorizer_config import load_rules, save_rules, format_date
 
+
+
 def clear_transactions_cache():
     """Clear cached transactions from session state."""
     if 'ynab_transactions_cache' in st.session_state:
         del st.session_state['ynab_transactions_cache']
-        st.success("🔄 Transaction cache cleared!")
+
+    # Also clear any other related session state
+    if 'update_success_message' in st.session_state:
+        del st.session_state['update_success_message']
+    if 'update_debug_info' in st.session_state:
+        del st.session_state['update_debug_info']
+
+    st.success("🔄 Transaction cache cleared!")
 
 def rate_limited_api_call(api_call_func, *args, max_retries=3, base_delay=1.0, **kwargs):
     """Execute an API call with rate limiting and retry logic."""
     for attempt in range(max_retries):
         try:
-            return api_call_func(*args, **kwargs)
+            print(f"🔍 DEBUG: Making API call attempt {attempt + 1}/{max_retries}")
+            result = api_call_func(*args, **kwargs)
+            print(f"🔍 DEBUG: API call successful on attempt {attempt + 1}")
+            return result
         except ynab.exceptions.UnauthorizedException as e:
             # Handle 401 Unauthorized immediately (no retry)
             print(f"❌ DEBUG: API key is invalid or expired (401 Unauthorized)")
@@ -38,6 +81,10 @@ def rate_limited_api_call(api_call_func, *args, max_retries=3, base_delay=1.0, *
                 print(f"❌ DEBUG: Error detail: {e.body}")
             raise
         except ynab.exceptions.ApiException as e:
+            print(f"❌ DEBUG: API Exception on attempt {attempt + 1}: Status {e.status}")
+            if hasattr(e, 'body'):
+                print(f"❌ DEBUG: Error body: {e.body}")
+
             if e.status == 429:  # Too Many Requests
                 if attempt < max_retries - 1:
                     # Exponential backoff with jitter
@@ -50,11 +97,15 @@ def rate_limited_api_call(api_call_func, *args, max_retries=3, base_delay=1.0, *
                     raise
             else:
                 # Re-raise non-rate-limit errors immediately
+                print(f"❌ DEBUG: Non-rate-limit error, re-raising immediately")
                 raise
         except Exception as e:
             # Re-raise other exceptions immediately
+            print(f"❌ DEBUG: Unexpected error on attempt {attempt + 1}: {str(e)}")
+            print(f"❌ DEBUG: Error type: {type(e).__name__}")
             raise
 
+    print(f"❌ DEBUG: All {max_retries} attempts failed")
     return None
 
 def check_api_key_validity():
@@ -164,7 +215,7 @@ def get_budget_selection():
         selected_budget_id = [budget.id for budget in budgets if budget.name == selected_budget_name][0]
         return selected_budget_id, configuration
 
-def get_categories(budget_id: str, configuration: ynab.Configuration) -> Dict[str, Dict]:
+def get_categories(budget_id: str, configuration) -> Dict[str, Dict]:
     """Get all categories for a budget."""
     with ynab.ApiClient(configuration) as api_client:
         categories_api = CategoriesApi(api_client)
@@ -182,7 +233,7 @@ def get_categories(budget_id: str, configuration: ynab.Configuration) -> Dict[st
                 }
         return category_mapping
 
-def get_unassigned_transactions(budget_id: str, configuration: ynab.Configuration, force_refresh: bool = False) -> List[Dict]:
+def get_unassigned_transactions(budget_id: str, configuration, force_refresh: bool = False) -> List[Dict]:
     """Get unassigned transactions (where category_id is null) with caching."""
     cache_key = f"unassigned_transactions_{budget_id}"
 
@@ -265,6 +316,11 @@ def match_transaction_to_rule(transaction: Dict, rules: List[Dict]) -> Optional[
     payee_name = transaction['payee_name'].lower()
     memo = transaction['memo'].lower()
 
+    # Debug output for first few transactions
+    if transaction.get('id', '').startswith('debug_') or len(transaction.get('id', '')) < 10:
+        print(f"🔍 DEBUG: Matching transaction {transaction.get('id', 'N/A')[:8]}...")
+        print(f"🔍 DEBUG: Payee: '{payee_name}', Memo: '{memo}'")
+
     for rule in rules:
         if not rule.get('category_id'):  # Skip rules without category_id
             continue
@@ -272,13 +328,23 @@ def match_transaction_to_rule(transaction: Dict, rules: List[Dict]) -> Optional[
         match_text = rule['match'].lower()
         match_type = rule['type']
 
+        # Debug output for first few rules
+        if transaction.get('id', '').startswith('debug_') or len(transaction.get('id', '')) < 10:
+            print(f"🔍 DEBUG: Checking rule: '{match_text}' ({match_type})")
+
         # Check payee_name and memo
         for field in [payee_name, memo]:
             if match_type == 'exact' and field == match_text:
+                if transaction.get('id', '').startswith('debug_') or len(transaction.get('id', '')) < 10:
+                    print(f"🔍 DEBUG: ✅ EXACT MATCH: '{field}' == '{match_text}'")
                 return rule['category_id']
             elif match_type == 'contains' and match_text in field:
+                if transaction.get('id', '').startswith('debug_') or len(transaction.get('id', '')) < 10:
+                    print(f"🔍 DEBUG: ✅ CONTAINS MATCH: '{match_text}' in '{field}'")
                 return rule['category_id']
             elif match_type == 'startsWith' and field.startswith(match_text):
+                if transaction.get('id', '').startswith('debug_') or len(transaction.get('id', '')) < 10:
+                    print(f"🔍 DEBUG: ✅ STARTSWITH MATCH: '{field}' starts with '{match_text}'")
                 return rule['category_id']
 
     return None
@@ -391,11 +457,16 @@ def get_llm_rule_suggestion(transaction: Dict, categories: Dict[str, Dict]) -> O
 
     return None
 
-def update_transactions(budget_id: str, configuration: ynab.Configuration, updates: List[Dict]) -> bool:
+def update_transactions(budget_id: str, configuration, updates: List[Dict]) -> bool:
     """Update transactions with new categories."""
     try:
+        print("=" * 80)
+        print("🚀 NEW TRANSACTION UPDATE REQUEST")
+        print("=" * 80)
         print(f"🔍 DEBUG: Starting update_transactions with {len(updates)} updates")
         print(f"🔍 DEBUG: Budget ID: {budget_id}")
+        print(f"🔍 DEBUG: Timestamp: {datetime.now().isoformat()}")
+        print("-" * 80)
 
         with ynab.ApiClient(configuration) as api_client:
             transactions_api = TransactionsApi(api_client)
@@ -416,14 +487,123 @@ def update_transactions(budget_id: str, configuration: ynab.Configuration, updat
             print(f"🔍 DEBUG: Payload: {transactions_payload}")
 
             # Use PatchTransactionsWrapper (correct approach)
-            from ynab.models.patch_transactions_wrapper import PatchTransactionsWrapper
-            wrapper = PatchTransactionsWrapper(transactions=transactions_payload)
+            try:
+                from ynab.models.patch_transactions_wrapper import PatchTransactionsWrapper
+                print(f"🔍 DEBUG: Successfully imported PatchTransactionsWrapper")
+                wrapper = PatchTransactionsWrapper(transactions=transactions_payload)
+                print(f"🔍 DEBUG: Created wrapper: {wrapper}")
+                print(f"🔍 DEBUG: Wrapper transactions: {wrapper.transactions}")
+            except ImportError as import_error:
+                print(f"❌ DEBUG: Failed to import PatchTransactionsWrapper: {import_error}")
+                st.error(f"Failed to import required YNAB model: {import_error}")
+                return False
+            except Exception as wrapper_error:
+                print(f"❌ DEBUG: Failed to create wrapper: {wrapper_error}")
+                st.error(f"Failed to create transaction wrapper: {wrapper_error}")
+                return False
 
             # Use rate limiting wrapper for API call
-            response = rate_limited_api_call(transactions_api.update_transactions, budget_id, wrapper)
+            try:
+                print(f"🔍 DEBUG: About to call transactions_api.update_transactions")
+                print(f"🔍 DEBUG: Method: {transactions_api.update_transactions}")
+                print(f"🔍 DEBUG: Budget ID: {budget_id}")
+                print(f"🔍 DEBUG: Wrapper type: {type(wrapper)}")
+                print(f"🔍 DEBUG: Wrapper content: {wrapper}")
 
-            print(f"🔍 DEBUG: Response: {response}")
-            print(f"🔍 DEBUG: Response type: {type(response)}")
+                                                # Try calling the API method directly first to test
+                print("-" * 60)
+                print("🧪 TESTING DIRECT API CALL (BULK UPDATE)")
+                print("-" * 60)
+                try:
+                    direct_response = transactions_api.update_transactions(budget_id, wrapper)
+                    print(f"🔍 DEBUG: Direct call response: {direct_response}")
+                    print(f"🔍 DEBUG: Direct call response type: {type(direct_response)}")
+                except Exception as direct_error:
+                    print(f"❌ DEBUG: Direct call failed: {direct_error}")
+
+                # Since the API call returns None, let's try a different approach
+                # The issue might be with the API method or the wrapper format
+                print("-" * 60)
+                print("🔄 FALLING BACK TO INDIVIDUAL TRANSACTION UPDATES")
+                print("-" * 60)
+
+                                                # Try using a different method - update_transaction instead of update_transactions
+                try:
+                    print(f"🔍 DEBUG: Trying update_transaction method for individual transactions...")
+                    success_count = 0
+                    updated_ids = []
+
+                    print("-" * 40)
+                    print(f"📝 PROCESSING {len(transactions_payload)} INDIVIDUAL TRANSACTIONS")
+                    print("-" * 40)
+
+                    for txn_data in transactions_payload:
+                        print(f"  🔄 Updating transaction {txn_data['id'][:8]}...")
+                        try:
+                            # Create a PutTransactionWrapper object for individual update
+                            from ynab.models.put_transaction_wrapper import PutTransactionWrapper
+                            from ynab.models.existing_transaction import ExistingTransaction
+
+                            # Create the transaction object using ExistingTransaction
+                            individual_txn = ExistingTransaction(
+                                id=txn_data['id'],
+                                category_id=txn_data['category_id']
+                            )
+
+                            # Wrap it in PutTransactionWrapper
+                            wrapper = PutTransactionWrapper(transaction=individual_txn)
+
+                            # Try to update individual transaction
+                            individual_response = transactions_api.update_transaction(budget_id, txn_data['id'], wrapper)
+                            print(f"    🔍 Response: {individual_response}")
+
+                            if individual_response and hasattr(individual_response, 'data'):
+                                success_count += 1
+                                updated_ids.append(txn_data['id'])
+                                print(f"    ✅ Successfully updated transaction {txn_data['id'][:8]}")
+                            else:
+                                print(f"    ❌ Update failed for {txn_data['id'][:8]}")
+
+                        except Exception as individual_error:
+                            print(f"    ❌ Error updating {txn_data['id'][:8]}: {individual_error}")
+
+                    if success_count > 0:
+                        print(f"✅ DEBUG: Successfully updated {success_count} transactions using individual method")
+                        # Create a mock response object
+                        class MockResponse:
+                            def __init__(self, transaction_ids):
+                                self.data = type('obj', (object,), {
+                                    'transaction_ids': transaction_ids
+                                })
+
+                        response = MockResponse(updated_ids)
+                    else:
+                        print(f"❌ DEBUG: All individual updates failed")
+                        response = None
+
+                except Exception as alternative_error:
+                    print(f"❌ DEBUG: Alternative approach failed: {alternative_error}")
+                    response = None
+
+                # Additional debugging for the response
+                if response is not None:
+                    print(f"🔍 DEBUG: Response attributes: {dir(response)}")
+                    if hasattr(response, 'data'):
+                        print(f"🔍 DEBUG: Response.data: {response.data}")
+                        if hasattr(response.data, '__dict__'):
+                            print(f"🔍 DEBUG: Response.data.__dict__: {response.data.__dict__}")
+                else:
+                    print(f"❌ DEBUG: Response is None - this suggests the API call didn't return anything")
+
+            except Exception as api_error:
+                print(f"❌ DEBUG: API call failed with error: {str(api_error)}")
+                print(f"❌ DEBUG: Error type: {type(api_error).__name__}")
+                if hasattr(api_error, 'status'):
+                    print(f"❌ DEBUG: HTTP status: {api_error.status}")
+                if hasattr(api_error, 'body'):
+                    print(f"❌ DEBUG: Response body: {api_error.body}")
+                st.error(f"API call failed: {str(api_error)}")
+                return False
 
             if response and hasattr(response, 'data'):
                 print(f"🔍 DEBUG: Response data: {response.data}")
@@ -434,12 +614,19 @@ def update_transactions(budget_id: str, configuration: ynab.Configuration, updat
 
                 success_count = len(response.data.transaction_ids) if hasattr(response.data, 'transaction_ids') else len(transactions_payload)
                 print(f"🔍 DEBUG: Successfully updated {success_count} transactions")
+                print(f"🔍 DEBUG: Transaction IDs updated: {response.data.transaction_ids if hasattr(response.data, 'transaction_ids') else 'N/A'}")
 
                 st.session_state['update_success_message'] = f"✅ Successfully updated {success_count} transactions!"
+                print("=" * 80)
+                print("✅ TRANSACTION UPDATE COMPLETED SUCCESSFULLY")
+                print("=" * 80)
                 return True
             else:
                 print(f"❌ DEBUG: Response is None or invalid")
                 st.session_state['update_success_message'] = f"❌ Failed to update transactions - no response from API"
+                print("=" * 80)
+                print("❌ TRANSACTION UPDATE FAILED")
+                print("=" * 80)
                 return False
 
     except Exception as e:
@@ -591,10 +778,39 @@ def render_rule_management(categories: Dict[str, Dict]):
         save_categorization_rules(rules, changed_rule_indices)
         st.success("Rules saved!")
 
+# Remove duplicate function definition
+
 def render_matched_transactions(unassigned_transactions: List[Dict], categories: Dict[str, Dict],
-                              rules: List[Dict], budget_id: str, configuration: ynab.Configuration):
+                              rules: List[Dict], budget_id: str, configuration):
     """Render transactions matched by rules."""
-    st.subheader("✅ Matched by Rules")
+    st.subheader("✅ Updated Transactions via Rules")
+
+    # Add refresh button at the top
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        if st.button("🔄 Force Refresh"):
+            clear_transactions_cache()
+            st.rerun()
+    with col2:
+        st.info("💡 If transactions still appear after updating, click 'Force Refresh' to reload from YNAB")
+
+    # Debug information
+    st.write(f"**Debug Info:**")
+    st.write(f"- Total unassigned transactions: {len(unassigned_transactions)}")
+    st.write(f"- Total rules: {len(rules)}")
+    st.write(f"- Rules with categories: {len([r for r in rules if r.get('category_id')])}")
+
+    # Show first few rules for debugging
+    if rules:
+        st.write("**First 3 rules:**")
+        for i, rule in enumerate(rules[:3]):
+            st.write(f"{i+1}. Match: '{rule.get('match', 'N/A')}', Type: {rule.get('type', 'N/A')}, Category: {rule.get('category_id', 'N/A')}")
+
+    # Show first few transactions for debugging
+    if unassigned_transactions:
+        st.write("**First 3 transactions:**")
+        for i, txn in enumerate(unassigned_transactions[:3]):
+            st.write(f"{i+1}. Payee: '{txn.get('payee_name', 'N/A')}', Memo: '{txn.get('memo', 'N/A')}'")
 
     matched_transactions = []
     for txn in unassigned_transactions:
@@ -605,6 +821,8 @@ def render_matched_transactions(unassigned_transactions: List[Dict], categories:
                 'suggested_category_id': category_id,
                 'suggested_category_name': categories[category_id]['full_name']
             })
+
+    st.write(f"**Matching Results:** {len(matched_transactions)} transactions matched by rules")
 
     if not matched_transactions:
         st.info("No transactions matched by rules.")
@@ -618,9 +836,9 @@ def render_matched_transactions(unassigned_transactions: List[Dict], categories:
         select_all = st.checkbox("✅ Select All", key="select_all_matched")
     with col2:
         if select_all:
-            st.success("All transactions selected for approval")
+            st.success("✅ All transactions automatically selected for approval")
         else:
-            st.info("Select individual transactions or use 'Select All'")
+            st.info("Select individual transactions or use 'Select All' to approve all at once")
 
     # Checkboxes for approval
     approved_updates = []
@@ -628,15 +846,24 @@ def render_matched_transactions(unassigned_transactions: List[Dict], categories:
         txn = match['transaction']
         category_name = match['suggested_category_name']
 
-        col1, col2, col3 = st.columns([3, 2, 1])
+        col1, col2, col3, col4 = st.columns([3, 2, 1, 1])
         with col1:
             st.write(f"**{txn['payee_name']}**")
             st.caption(f"Memo: {txn['memo']} | Amount: ${txn['amount'] / 1000.0:.2f}")
         with col2:
             st.write(f"→ {category_name}")
         with col3:
-            # Use select_all to control individual checkboxes
-            checkbox_value = select_all or st.checkbox("Approve", key=f"approve_matched_{i}")
+            st.caption(f"📅 {txn['date']}")
+        with col4:
+            # Always render the checkbox, but control its value with select_all
+            if select_all:
+                # When select_all is True, show checked checkbox (disabled)
+                st.checkbox("Approve", value=True, key=f"approve_matched_{i}", disabled=True)
+                checkbox_value = True
+            else:
+                # When select_all is False, show normal checkbox
+                checkbox_value = st.checkbox("Approve", key=f"approve_matched_{i}")
+
             if checkbox_value:
                 approved_updates.append({
                     'transaction_id': txn['id'],
@@ -645,14 +872,36 @@ def render_matched_transactions(unassigned_transactions: List[Dict], categories:
 
     # Apply updates
     if approved_updates and st.button("🚀 Apply Selected Updates"):
-        if update_transactions(budget_id, configuration, approved_updates):
-            # Clear cache to refresh transactions after categorization
-            clear_transactions_cache()
-            st.session_state['update_success_message'] = f"Successfully updated {len(approved_updates)} transactions!"
-            st.rerun()
+        with st.spinner("Applying updates..."):
+            if update_transactions(budget_id, configuration, approved_updates):
+                # Store the update timestamp and transaction IDs
+                st.session_state['last_update_time'] = datetime.now().isoformat()
+                st.session_state['last_updated_transaction_ids'] = [update['transaction_id'] for update in approved_updates]
+
+                # Clear cache to refresh transactions after categorization
+                clear_transactions_cache()
+                st.success(f"✅ Successfully updated {len(approved_updates)} transactions!")
+                st.info("🔄 Refreshing transactions... This may take a few seconds.")
+
+                # Force a fresh fetch of transactions
+                try:
+                    # Clear the cache and force refresh
+                    if 'ynab_transactions_cache' in st.session_state:
+                        del st.session_state['ynab_transactions_cache']
+
+                    # Add a longer delay to ensure YNAB API has processed the updates
+                    time.sleep(2)
+
+                    # Force rerun to refresh the page
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error refreshing: {e}")
+                    st.rerun()
+            else:
+                st.error("❌ Failed to update transactions. Please check the console for errors.")
 
 def render_llm_assisted_transactions(unassigned_transactions: List[Dict], categories: Dict[str, Dict],
-                                   rules: List[Dict], budget_id: str, configuration: ynab.Configuration):
+                                   rules: List[Dict], budget_id: str, configuration):
     """Render transactions that need LLM assistance."""
     st.subheader("🤖 Needs Review (LLM Assist)")
 
@@ -871,14 +1120,23 @@ def render_llm_assisted_transactions(unassigned_transactions: List[Dict], catego
 
     # Apply updates
     if approved_updates and st.button("🚀 Apply Selected LLM Updates"):
-        if update_transactions(budget_id, configuration, approved_updates):
-            # Clear cache to refresh transactions after categorization
-            clear_transactions_cache()
-            st.session_state['update_success_message'] = f"Successfully updated {len(approved_updates)} transactions!"
-            st.rerun()
+        with st.spinner("Applying updates..."):
+            if update_transactions(budget_id, configuration, approved_updates):
+                # Clear cache to refresh transactions after categorization
+                clear_transactions_cache()
+                st.success(f"✅ Successfully updated {len(approved_updates)} transactions! Refreshing...")
+                # Add a small delay to ensure the cache is cleared before rerun
+                time.sleep(0.5)
+                st.rerun()
+            else:
+                st.error("❌ Failed to update transactions. Please check the console for errors.")
 
 def render():
     """Main render function for the YNAB Categorizer tool."""
+
+    if not YNAB_AVAILABLE:
+        st.error("YNAB module not available. Please install it with: pip install ynab")
+        return
 
     # Show success message if present
     if 'update_success_message' in st.session_state:
@@ -918,7 +1176,7 @@ def render():
     time.sleep(0.5)
 
     # Add refresh controls
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
     with col1:
         if st.button("🔄 Refresh Transactions"):
             clear_transactions_cache()
@@ -937,6 +1195,18 @@ def render():
             else:
                 st.info("No cache data available")
     with col3:
+        if st.button("🧪 Test API Connection"):
+            st.write("**Testing API Connection...**")
+            try:
+                with ynab.ApiClient(configuration) as api_client:
+                    from ynab.api.user_api import UserApi
+                    user_api = UserApi(api_client)
+                    user_response = user_api.get_user()
+                    st.success(f"✅ API connection successful! User ID: {user_response.data.user.id}")
+            except Exception as e:
+                st.error(f"❌ API connection failed: {str(e)}")
+                st.write(f"Error type: {type(e).__name__}")
+    with col4:
         st.caption("💡 Cache expires after 5 minutes")
 
     try:
@@ -950,6 +1220,12 @@ def render():
     is_cached = ('ynab_transactions_cache' in st.session_state and
                  cache_key in st.session_state['ynab_transactions_cache'])
 
+    # Show last update information if available
+    if 'last_update_time' in st.session_state:
+        last_update_time = st.session_state['last_update_time']
+        last_updated_count = len(st.session_state.get('last_updated_transaction_ids', []))
+        st.success(f"🕒 Last updated {last_updated_count} transactions at {format_date(last_update_time)}")
+
     if is_cached:
         st.success(f"📊 Found {len(unassigned_transactions)} unassigned transactions (🔄 from cache)")
     else:
@@ -959,22 +1235,81 @@ def render():
         st.success("🎉 All categorizable transactions are already categorized!")
         return
 
+    # Check if any transactions from the last update are still showing as unassigned
+    if 'last_updated_transaction_ids' in st.session_state:
+        last_updated_ids = set(st.session_state['last_updated_transaction_ids'])
+        still_unassigned = [txn for txn in unassigned_transactions if txn['id'] in last_updated_ids]
+        if still_unassigned:
+            st.warning(f"⚠️ **Warning**: {len(still_unassigned)} transactions from the last update are still showing as unassigned. This may indicate the update didn't complete successfully in YNAB.")
+
+    # Add debug button after transactions are loaded
+    if st.button("🔍 Debug Transactions"):
+        st.write("**Debug Information:**")
+        st.write(f"Total unassigned transactions: {len(unassigned_transactions)}")
+        if unassigned_transactions:
+            st.write("**First 3 transactions:**")
+            for i, txn in enumerate(unassigned_transactions[:3]):
+                st.write(f"{i+1}. ID: {txn['id']}, Payee: {txn['payee_name']}, Category: {txn['category_id']}")
+
     # Load rules
     rules = load_categorization_rules()
 
-    # Create tabs
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 Rules", "✅ Matched by Rules", "🤖 Needs Review (LLM Assist)", "📋 LLM Logs"])
+    # Debug rules loading
+    st.write(f"**Rules Loaded:** {len(rules)} rules found")
+    if rules:
+        st.write("**First 3 rules:**")
+        for i, rule in enumerate(rules[:3]):
+            st.write(f"{i+1}. Match: '{rule.get('match', 'N/A')}', Type: {rule.get('type', 'N/A')}, Category: {rule.get('category_id', 'N/A')}")
 
-    with tab1:
+    # Add debug button for rule matching
+    if st.button("🧪 Test Rule Matching"):
+        st.write("**Testing Rule Matching:**")
+        if rules and unassigned_transactions:
+            st.write(f"Testing {len(rules)} rules against {len(unassigned_transactions)} transactions...")
+
+            # Test first 3 transactions
+            for i, txn in enumerate(unassigned_transactions[:3]):
+                st.write(f"**Transaction {i+1}:** {txn['payee_name']} - {txn['memo']}")
+                category_id = match_transaction_to_rule(txn, rules)
+                if category_id:
+                    st.success(f"✅ Matched to category: {category_id}")
+                else:
+                    st.warning("❌ No rule match found")
+                st.write("---")
+        else:
+            st.error("No rules or transactions to test")
+
+    # Create custom tab-like interface with persistence
+    tab_names = ["📋 Rules", "✅ Updated Transactions via Rules", "🤖 Needs Review (LLM Assist)", "📋 LLM Logs"]
+
+    # Initialize default tab if not set
+    if 'current_tab' not in st.session_state:
+        st.session_state.current_tab = 0
+
+    # Create tab-like radio buttons (these persist across reruns)
+    selected_tab = st.radio(
+        "Select Tab",
+        tab_names,
+        index=st.session_state.current_tab,
+        key="tab_selector",
+        label_visibility="collapsed",
+        horizontal=True
+    )
+
+    # Update the stored tab index
+    st.session_state.current_tab = tab_names.index(selected_tab)
+
+    # Add some styling to make it look more like tabs
+    st.markdown("---")
+
+    # Show content based on selected tab
+    if selected_tab == "📋 Rules":
         render_rule_management(categories)
-
-    with tab2:
+    elif selected_tab == "✅ Updated Transactions via Rules":
         render_matched_transactions(unassigned_transactions, categories, rules, budget_id, configuration)
-
-    with tab3:
+    elif selected_tab == "🤖 Needs Review (LLM Assist)":
         render_llm_assisted_transactions(unassigned_transactions, categories, rules, budget_id, configuration)
-
-    with tab4:
+    elif selected_tab == "📋 LLM Logs":
         col1, col2 = st.columns([1, 4])
         with col1:
             if st.button("🗑️ Clear Logs"):

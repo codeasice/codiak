@@ -1,8 +1,18 @@
 import streamlit as st
+
+# CRITICAL: set_page_config must be the very first Streamlit command
+st.set_page_config(
+    page_title="Codiak",
+    page_icon="favicon.png",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 import os
 from dotenv import load_dotenv
 import pandas as pd
 
+# Import tools only after page config is set
 import tools
 from tools.ui_tools_manager import UIToolsManager
 
@@ -12,13 +22,6 @@ DEFAULT_VAULT_PATH = os.getenv('OB_VAULT_PATH', './vault')
 # Use the fast metadata mode for tool discovery
 ui_tools_manager = UIToolsManager(use_fast_mode=True)
 TOOLS_METADATA = ui_tools_manager.get_tools()
-
-st.set_page_config(
-    page_title="Codiak",
-    page_icon="favicon.png",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 # --- Sidebar Navigation ---
 st.sidebar.title("Tools")
@@ -85,9 +88,14 @@ RENDER_FUNC_MAP = {
     'ColorSwatchInjector': tools.colorswatch_injector.render,
     'NmapNetworkAnalyzer': tools.nmap_network_analyzer.render,
     'YnabUnknownCategoryTransactions': tools.ynab_unknown_category_transactions.render,
-    'YnabCategorizer': tools.ynab_categorizer.render,
+
+    'YnabRules': tools.ynab_rules.render,
+    'YnabApplyRules': tools.ynab_apply_rules.render,
+    'YnabMapUncategorized': tools.ynab_map_uncategorized.render,
+    'YnabListCategories': tools.ynab_list_categories.render,
     'HomeAutomationCategorizer': tools.home_automation_categorizer.render,
     'TableCreator': tools.table_creator.render,
+    'MarkdownTableConverter': tools.markdown_table_converter.render,
     'ChangesInRange': tools.changes_in_range.render,
     'IncompleteTasksInRange': tools.incomplete_tasks_in_range.render,
     'AwsEc2Manager': tools.aws_ec2_manager.render,
@@ -122,8 +130,19 @@ def show_tool_directory():
         st.divider()
 
 if selected_tool_definition:
-    st.title(selected_tool_definition['long_title'])
-    st.write(selected_tool_definition['description'])
+    # Global logging for tool access
+    from datetime import datetime
+    timestamp = datetime.now().isoformat()
+    print("=" * 100)
+    print(f"🌐 GLOBAL TOOL ACCESS LOG - {timestamp}")
+    print(f"🔧 Tool: {selected_tool_definition['long_title']}")
+    print(f"🆔 Tool ID: {selected_tool_definition['id']}")
+    print(f"📂 Category: {selected_tool_definition['category']}")
+    print(f"👤 Session ID: {st.session_state.get('session_id', 'unknown')}")
+    print(f"📝 Description: {selected_tool_definition['description']}")
+    print("=" * 100)
+
+    # Tool metadata is now handled by the tool's own render function
     st.divider()
     render_func = RENDER_FUNC_MAP.get(selected_tool_definition['id'])
     if render_func:

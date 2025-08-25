@@ -1,13 +1,23 @@
 import streamlit as st
-import ynab
 import os
-from ynab.api.transactions_api import TransactionsApi
-from ynab.api.budgets_api import BudgetsApi
-from ynab.api.accounts_api import AccountsApi
-from ynab.models.save_transaction_with_optional_fields import SaveTransactionWithOptionalFields
-from ynab.models.post_transactions_wrapper import PostTransactionsWrapper
+
+# Import ynab only when needed to avoid import errors
+try:
+    import ynab
+    from ynab.api.transactions_api import TransactionsApi
+    from ynab.api.budgets_api import BudgetsApi
+    from ynab.api.accounts_api import AccountsApi
+    from ynab.models.save_transaction_with_optional_fields import SaveTransactionWithOptionalFields
+    from ynab.models.post_transactions_wrapper import PostTransactionsWrapper
+    YNAB_AVAILABLE = True
+except ImportError:
+    YNAB_AVAILABLE = False
 
 def render():
+    if not YNAB_AVAILABLE:
+        st.error("YNAB module not available. Please install it with: pip install ynab")
+        st.stop()
+
     ynab_api_key = os.getenv('YNAB_API_KEY')
 
     if not ynab_api_key:

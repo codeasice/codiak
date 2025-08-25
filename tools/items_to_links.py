@@ -31,6 +31,44 @@ def items_to_links(input_text: str, exclude_numbers: bool = False) -> str:
         processed_lines.append(f'[[{stripped}]]')
     return '\n'.join(processed_lines)
 
+def items_to_links_bold_only(input_text: str, exclude_numbers: bool = False) -> str:
+    """
+    Converts only the bolded portions of each line to Obsidian links.
+    Looks for **text** or __text__ patterns and converts them to [[text]].
+
+    Args:
+        input_text (str): Multiline string with one item per line.
+        exclude_numbers (bool): If True, remove leading numbers and punctuation.
+    Returns:
+        str: Multiline string with only bolded portions converted to links.
+    """
+    lines = input_text.strip().splitlines()
+    processed_lines = []
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        if exclude_numbers:
+            # Remove leading numbers, dots, parentheses, and whitespace (e.g., '1. ', '2) ', '3 - ')
+            stripped = re.sub(r'^\s*\d+[.)\-:]*\s*', '', stripped)
+
+        # Find bolded text patterns and convert them to links
+        # Pattern matches **text** or __text__
+        bold_pattern = r'\*\*(.*?)\*\*|__(.*?)__'
+
+        def replace_bold_with_link(match):
+            # Get the text from either ** or __ pattern
+            text = match.group(1) if match.group(1) else match.group(2)
+            return f'[[{text}]]'
+
+        # Replace bolded text with links
+        converted = re.sub(bold_pattern, replace_bold_with_link, stripped)
+        processed_lines.append(converted)
+
+    return '\n'.join(processed_lines)
+
 def links_to_items(input_text: str) -> str:
     """
     Converts each line in the input text from [[item]] to item (removes surrounding brackets if present).
@@ -52,12 +90,24 @@ def render():
         value="",
         height=200,
         key="items_to_links_input",
+        help="For 'Bold Only' mode: Use **text** or __text__ to mark portions for linking"
     )
-    exclude_numbers = st.checkbox(
-        "Exclude leading numbers from each line (e.g., '1. Item' → 'Item')",
-        value=False,
-        key="exclude_numbers_checkbox",
-    )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        exclude_numbers = st.checkbox(
+            "Exclude leading numbers from each line (e.g., '1. Item' → 'Item')",
+            value=False,
+            key="exclude_numbers_checkbox",
+        )
+    with col2:
+        bold_only = st.checkbox(
+            "Only link bolded portions (**text** → [[text]])",
+            value=False,
+            key="bold_only_checkbox",
+            help="Convert only **bold** or __bold__ text to [[links]]"
+        )
+
     col1, col2, col3 = st.columns([2, 2, 2])
     with col2:
         add_links = st.button("Add Links", key="add_links_btn")
@@ -66,7 +116,10 @@ def render():
 
     output = ""
     if add_links:
-        output = items_to_links(input_text, exclude_numbers=exclude_numbers)
+        if bold_only:
+            output = items_to_links_bold_only(input_text, exclude_numbers=exclude_numbers)
+        else:
+            output = items_to_links(input_text, exclude_numbers=exclude_numbers)
     elif remove_links:
         output = links_to_items(input_text)
 
