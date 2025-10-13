@@ -3,3 +3,263 @@ description:
 globs:
 alwaysApply: false
 ---
+# Using LLMs in Codiak Tools
+
+This document provides guidelines for integrating LLM functionality into new tools using the shared `llm_utils` module.
+
+## Quick Start
+
+### 1. Import the Shared LLM Module
+```python
+from .llm_utils import get_llm_suggestion, display_llm_logs, clear_llm_logs
+```
+
+### 2. Make LLM Calls
+```python
+# Simple LLM suggestion
+response, error = get_llm_suggestion(
+    prompt="Your prompt here",
+    tool_name="Your Tool Name",
+    function_name="your_function_name"
+)
+
+if error:
+    st.error(f"LLM error: {error}")
+else:
+    st.success(f"LLM response: {response}")
+```
+
+### 3. Add Logging Interface (Optional)
+```python
+# Add to your tool's render function
+if st.button("📋 View LLM Logs"):
+    display_llm_logs()
+
+if st.button("🗑️ Clear LLM Logs"):
+    clear_llm_logs()
+    st.rerun()
+```
+
+## Advanced Usage
+
+### Custom Model Parameters
+```python
+response, error = get_llm_suggestion(
+    prompt="Your prompt",
+    tool_name="Your Tool",
+    function_name="custom_function",
+    model="gpt-4",  # Default: gpt-3.5-turbo
+    max_tokens=200,  # Default: 100
+    temperature=0.3  # Default: 0.1
+)
+```
+
+### Complex Prompts with Context
+```python
+prompt = f"""
+Analyze this data:
+
+Input: {user_input}
+Context: {additional_context}
+Available options: {options_list}
+
+Instructions:
+1. Consider the context carefully
+2. Provide a structured response
+3. Include reasoning for your choice
+
+Format your response as JSON:
+{{
+    "choice": "selected_option",
+    "reasoning": "explanation",
+    "confidence": 0.95
+}}
+"""
+
+response, error = get_llm_suggestion(
+    prompt=prompt,
+    tool_name="Data Analyzer",
+    function_name="analyze_user_input",
+    max_tokens=300
+)
+```
+
+## Best Practices
+
+### 1. Error Handling
+Always check for errors and provide user-friendly messages:
+```python
+response, error = get_llm_suggestion(prompt, tool_name, function_name)
+
+if error:
+    if "not configured" in error:
+        st.error("❌ LLM not configured. Please set OPENAI_API_KEY environment variable.")
+    elif "not available" in error:
+        st.error("❌ LLM not available. Install with 'pip install openai'.")
+    else:
+        st.error(f"❌ LLM error: {error}")
+    return
+```
+
+### 2. Loading States
+Show loading indicators during LLM calls:
+```python
+if st.button("🤖 Get LLM Suggestion"):
+    with st.spinner("Getting LLM suggestion..."):
+        response, error = get_llm_suggestion(prompt, tool_name, function_name)
+        # Handle response...
+```
+
+### 3. Structured Responses
+For complex responses, parse JSON or structured formats:
+```python
+import json
+
+response, error = get_llm_suggestion(prompt, tool_name, function_name)
+
+if not error:
+    try:
+        parsed_response = json.loads(response)
+        # Use structured data
+        st.success(f"Choice: {parsed_response['choice']}")
+        st.info(f"Reasoning: {parsed_response['reasoning']}")
+    except json.JSONDecodeError:
+        st.warning("LLM response was not in expected format")
+        st.code(response)
+```
+
+### 4. Rate Limiting
+For tools that make multiple LLM calls, add delays:
+```python
+import time
+
+for item in items:
+    response, error = get_llm_suggestion(prompt, tool_name, function_name)
+    # Process response...
+
+    # Add delay between calls to avoid rate limits
+    time.sleep(0.5)
+```
+
+## Configuration
+
+### Environment Variables
+Ensure these are set in your environment:
+```bash
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+### Dependencies
+The shared module requires:
+```bash
+pip install openai
+```
+
+## Debugging
+
+### View LLM Interactions
+All LLM interactions are automatically logged. You can view them in any tool that imports the shared module:
+
+```python
+# Add this to your tool's render function
+with st.expander("🔍 Debug: LLM Logs"):
+    display_llm_logs()
+```
+
+### Clear Logs
+```python
+if st.button("🗑️ Clear LLM Logs"):
+    clear_llm_logs()
+    st.rerun()
+```
+
+## Example Tool Integration
+
+Here's a complete example of integrating LLMs into a new tool:
+
+```python
+import streamlit as st
+from .llm_utils import get_llm_suggestion, display_llm_logs, clear_llm_logs
+
+def render():
+    st.header("My LLM-Enabled Tool")
+
+    user_input = st.text_area("Enter your question:")
+
+    if st.button("🤖 Get AI Response"):
+        if user_input:
+            with st.spinner("Getting AI response..."):
+                prompt = f"""
+                Answer this question: {user_input}
+
+                Provide a helpful, accurate response.
+                """
+
+                response, error = get_llm_suggestion(
+                    prompt=prompt,
+                    tool_name="My Tool",
+                    function_name="answer_question"
+                )
+
+                if error:
+                    st.error(f"Error: {error}")
+                else:
+                    st.success("AI Response:")
+                    st.write(response)
+        else:
+            st.warning("Please enter a question")
+
+    # Debug section
+    with st.expander("🔍 LLM Debug Info"):
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📋 View Logs"):
+                display_llm_logs()
+        with col2:
+            if st.button("🗑️ Clear Logs"):
+                clear_llm_logs()
+                st.rerun()
+```
+
+## Migration from Direct LLM Usage
+
+If you have existing tools using LLMs directly, migrate them to use the shared module:
+
+### Before (Direct OpenAI Usage)
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+response = client.chat.completions.create(
+    model="gpt-3.5-turbo",
+    messages=[{"role": "user", "content": prompt}],
+    max_tokens=100
+)
+result = response.choices[0].message.content
+```
+
+### After (Shared Module)
+```python
+from .llm_utils import get_llm_suggestion
+
+response, error = get_llm_suggestion(
+    prompt=prompt,
+    tool_name="Your Tool",
+    function_name="your_function"
+)
+```
+
+## Notes
+
+- The shared module automatically handles API key validation
+- All interactions are logged for debugging
+- Error messages are user-friendly
+- The module supports different models and parameters
+- Logs are stored in session state and persist across tool usage
+
+## See Also
+
+- `tools/llm_utils.py` - The shared LLM module implementation
+- `tools/ynab_categorizer.py` - Example of LLM integration in a real tool
+

@@ -93,6 +93,8 @@ RENDER_FUNC_MAP = {
     'YnabApplyRules': tools.ynab_apply_rules.render,
     'YnabMapUncategorized': tools.ynab_map_uncategorized.render,
     'YnabListCategories': tools.ynab_list_categories.render,
+    'YnabAlluvialDiagram': tools.ynab_alluvial_diagram.render,
+    'YnabExportData': tools.ynab_export_data.render,
     'HomeAutomationCategorizer': tools.home_automation_categorizer.render,
     'TableCreator': tools.table_creator.render,
     'MarkdownTableConverter': tools.markdown_table_converter.render,
@@ -101,6 +103,8 @@ RENDER_FUNC_MAP = {
     'AwsEc2Manager': tools.aws_ec2_manager.render,
     'AwsCostMonitor': tools.aws_cost_monitor.render,
     'DndCharacterEditor': tools.dnd_character_editor.render,
+    'AccountManager': tools.account_manager.render,
+    'CreditCardInterest': tools.credit_card_interest.render,
 }
 
 def show_tool_directory():

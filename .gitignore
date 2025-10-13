@@ -68,3 +68,6 @@ Thumbs.db
 # Environment variables
 .env
 venv/
+
+ynab_*.json
+accounts.db

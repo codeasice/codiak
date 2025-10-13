@@ -23,6 +23,8 @@ from . import ynab_rules
 from . import ynab_apply_rules
 from . import ynab_map_uncategorized
 from . import ynab_list_categories
+from . import ynab_alluvial_diagram
+from . import ynab_export_data
 
 # Other tools
 from . import home_automation_categorizer
@@ -33,4 +35,6 @@ from . import incomplete_tasks_in_range
 from . import aws_ec2_manager
 from . import aws_cost_monitor
 from . import dnd_character_editor
+from . import account_manager
+from . import credit_card_interest
 from . import llm_utils

@@ -259,6 +259,22 @@ UI_TOOLS_METADATA = [
         "description": "Edit primary properties of D&D characters (hero.json, npc.json) and monsters (monster.json) with a comprehensive UI.",
         "requires_vault_path": False
     },
+    {
+        "id": "AccountManager",
+        "short_title": "Account Manager",
+        "long_title": "Financial Account Management Tool",
+        "category": "Finance",
+        "description": "Manage your financial accounts and track balances over time. Add accounts, record balance snapshots, and view account history.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "CreditCardInterest",
+        "short_title": "Credit Card Interest",
+        "long_title": "Credit Card Daily Interest Calculator",
+        "category": "Finance",
+        "description": "Calculate daily interest costs for credit card balances based on APRs. See how much interest you're paying each day.",
+        "requires_vault_path": False
+    },
 ]
 
 def get_tools_metadata_fast():
