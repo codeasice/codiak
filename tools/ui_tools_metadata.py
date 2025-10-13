@@ -116,6 +116,22 @@ UI_TOOLS_METADATA = [
         "requires_vault_path": False
     },
     {
+        "id": "YnabAlluvialDiagram",
+        "short_title": "YNAB Money Flow",
+        "long_title": "YNAB Money Flow Visualization",
+        "category": "YNAB",
+        "description": "Visualize money flow from payees to categories for a selected month using an interactive alluvial diagram.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "YnabExportData",
+        "short_title": "YNAB Export Data",
+        "long_title": "YNAB Data Export Tool",
+        "category": "YNAB",
+        "description": "Export all YNAB data (budgets, categories, transactions, accounts) to a JSON file for offline analysis.",
+        "requires_vault_path": False
+    },
+    {
         "id": "TagSearch",
         "short_title": "Tag Search",
         "long_title": "Tag Search in Obsidian Notes",
