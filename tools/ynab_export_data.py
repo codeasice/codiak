@@ -1,8 +1,9 @@
 import streamlit as st
 import os
 import json
+import sqlite3
 from datetime import datetime, date
-from typing import Dict, List, Any
+from typing import Dict, Any
 
 # Import ynab only when needed to avoid import errors
 try:
@@ -10,6 +11,10 @@ try:
     YNAB_AVAILABLE = True
 except ImportError:
     YNAB_AVAILABLE = False
+
+def get_db_connection():
+    """Get database connection."""
+    return sqlite3.connect('accounts.db')
 
 def get_ynab_client():
     """Get configured YNAB API client."""
@@ -188,7 +193,7 @@ def save_data_to_file(data: Dict[str, Any], filename: str) -> bool:
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(json_data, f, indent=2, ensure_ascii=False)
         return True
-    except Exception as e:
+    except (IOError, OSError) as e:
         st.error(f"Error saving file: {e}")
         return False
 
@@ -197,14 +202,373 @@ def load_data_from_file(filename: str) -> Dict[str, Any]:
     try:
         with open(filename, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except Exception as e:
+    except (IOError, OSError, json.JSONDecodeError) as e:
         st.error(f"Error loading file: {e}")
         return {}
+
+def import_ynab_data_to_db(data: Dict[str, Any], budget_id: str) -> bool:
+    """Import YNAB data directly into SQLite database."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Clear existing YNAB data
+        ynab_tables = ['ynab_transactions', 'ynab_subtransactions', 'ynab_categories',
+                       'ynab_category_groups', 'ynab_payees', 'ynab_account', 'ynab_budgets']
+
+        for table in ynab_tables:
+            cursor.execute(f"DELETE FROM {table}")
+
+        # Import budgets
+        for budget in data.get('budgets', []):
+            cursor.execute("""
+                INSERT INTO ynab_budgets (
+                    id, name, last_modified_on, first_month, last_month,
+                    date_format_format, currency_format_iso_code,
+                    currency_format_example_format, currency_format_decimal_digits,
+                    currency_format_decimal_separator, currency_format_symbol_first,
+                    currency_format_group_separator, currency_format_currency_symbol,
+                    currency_format_display_symbol, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                budget['id'],
+                budget['name'],
+                budget.get('last_modified_on'),
+                budget.get('first_month'),
+                budget.get('last_month'),
+                budget.get('date_format', {}).get('format'),
+                budget.get('currency_format', {}).get('iso_code'),
+                budget.get('currency_format', {}).get('example_format'),
+                budget.get('currency_format', {}).get('decimal_digits'),
+                budget.get('currency_format', {}).get('decimal_separator'),
+                budget.get('currency_format', {}).get('symbol_first'),
+                budget.get('currency_format', {}).get('group_separator'),
+                budget.get('currency_format', {}).get('currency_symbol'),
+                budget.get('currency_format', {}).get('display_symbol'),
+                datetime.now().isoformat()
+            ))
+
+        # Import categories and category groups
+        category_groups = set()
+        for category in data.get('categories', []):
+            # Track category groups
+            category_groups.add((category['category_group_id'], category['category_group_name']))
+
+            cursor.execute("""
+                INSERT INTO ynab_categories (
+                    id, name, category_group_id, category_group_name, full_name,
+                    hidden, original_category_group_id, note, budgeted, activity,
+                    balance, goal_type, goal_creation_month, goal_target,
+                    goal_target_month, goal_percentage_complete, deleted, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                category['id'],
+                category['name'],
+                category['category_group_id'],
+                category['category_group_name'],
+                category.get('full_name'),
+                category.get('hidden', False),
+                category.get('original_category_group_id'),
+                category.get('note'),
+                category.get('budgeted', 0),
+                category.get('activity', 0),
+                category.get('balance', 0),
+                category.get('goal_type'),
+                category.get('goal_creation_month'),
+                category.get('goal_target', 0),
+                category.get('goal_target_month'),
+                category.get('goal_percentage_complete'),
+                category.get('deleted', False),
+                datetime.now().isoformat()
+            ))
+
+        # Import category groups
+        for group_id, group_name in category_groups:
+            cursor.execute("""
+                INSERT INTO ynab_category_groups (
+                    id, name, updated_at
+                ) VALUES (?, ?, ?)
+            """, (group_id, group_name, datetime.now().isoformat()))
+
+        # Import transactions and payees
+        payees = set()
+        for transaction in data.get('transactions', []):
+            # Track payees
+            if transaction.get('payee_id') and transaction.get('payee_name'):
+                payees.add((transaction['payee_id'], transaction['payee_name']))
+
+            cursor.execute("""
+                INSERT INTO ynab_transactions (
+                    id, date, amount, memo, cleared, approved, flag_color, flag_name,
+                    account_id, account_name, payee_id, payee_name, category_id,
+                    category_name, transfer_account_id, transfer_transaction_id,
+                    matched_transaction_id, import_id, import_payee_name,
+                    import_payee_name_original, debt_transaction_type, deleted, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                transaction['id'],
+                transaction['date'],
+                transaction['amount'],
+                transaction.get('memo'),
+                transaction.get('cleared'),
+                transaction.get('approved', False),
+                transaction.get('flag_color'),
+                transaction.get('flag_name'),
+                transaction['account_id'],
+                transaction['account_name'],
+                transaction.get('payee_id'),
+                transaction.get('payee_name'),
+                transaction.get('category_id'),
+                transaction.get('category_name'),
+                transaction.get('transfer_account_id'),
+                transaction.get('transfer_transaction_id'),
+                transaction.get('matched_transaction_id'),
+                transaction.get('import_id'),
+                transaction.get('import_payee_name'),
+                transaction.get('import_payee_name_original'),
+                transaction.get('debt_transaction_type'),
+                transaction.get('deleted', False),
+                datetime.now().isoformat()
+            ))
+
+            # Import subtransactions
+            for subtransaction in transaction.get('subtransactions', []):
+                cursor.execute("""
+                    INSERT INTO ynab_subtransactions (
+                        id, transaction_id, amount, memo, payee_id, payee_name,
+                        category_id, category_name, transfer_account_id, deleted, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    subtransaction['id'],
+                    subtransaction['transaction_id'],
+                    subtransaction['amount'],
+                    subtransaction.get('memo'),
+                    subtransaction.get('payee_id'),
+                    subtransaction.get('payee_name'),
+                    subtransaction.get('category_id'),
+                    subtransaction.get('category_name'),
+                    subtransaction.get('transfer_account_id'),
+                    subtransaction.get('deleted', False),
+                    datetime.now().isoformat()
+                ))
+
+        # Import payees
+        for payee_id, payee_name in payees:
+            cursor.execute("""
+                INSERT INTO ynab_payees (
+                    id, name, updated_at
+                ) VALUES (?, ?, ?)
+            """, (payee_id, payee_name, datetime.now().isoformat()))
+
+        # Import accounts
+        for account in data.get('accounts', []):
+            cursor.execute("""
+                INSERT INTO ynab_account (
+                    budget_id, ynab_account_id, name, type, on_budget, closed, note,
+                    balance, cleared_balance, uncleared_balance, transfer_payee_id,
+                    direct_import_linked, direct_import_in_error, last_reconciled_at,
+                    deleted, updated_at_utc
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                budget_id,  # Use the budget_id from the function parameter
+                account['id'],
+                account['name'],
+                account['type'],
+                account['on_budget'],
+                account['closed'],
+                account.get('note'),
+                account['balance'],
+                account['cleared_balance'],
+                account['uncleared_balance'],
+                account.get('transfer_payee_id'),
+                account.get('direct_import_linked', False),
+                account.get('direct_import_in_error', False),
+                account.get('last_reconciled_at'),
+                account.get('deleted', False),
+                datetime.now().isoformat()
+            ))
+
+        # Create balance snapshots for linked accounts
+        cursor.execute("""
+            SELECT a.id as account_id, a.name as account_name, a.side, a.currency,
+                   ya.balance as ynab_balance, ya.cleared_balance, ya.uncleared_balance
+            FROM account a
+            JOIN account_link_ynab al ON a.id = al.account_id
+            JOIN ynab_account ya ON al.ynab_account_id = ya.ynab_account_id
+            WHERE ya.budget_id = ?
+        """, (budget_id,))
+
+        linked_accounts = cursor.fetchall()
+
+        for linked_account in linked_accounts:
+            account_id = linked_account[0]
+            account_name = linked_account[1]
+            account_side = linked_account[2]
+            account_currency = linked_account[3]
+            ynab_balance = linked_account[4]
+            cleared_balance = linked_account[5]
+            uncleared_balance = linked_account[6]
+
+            # Convert YNAB balance to cents (YNAB uses millidollars, we use cents)
+            balance_cents = int(ynab_balance / 10)  # Convert millidollars to cents
+
+            # Adjust balance based on account side (credit accounts show negative balances)
+            if account_side == 'credit':
+                balance_cents = -balance_cents
+
+            # Create balance snapshot
+            cursor.execute("""
+                INSERT INTO balance_snapshot (
+                    account_id, amount_cents, as_of_date, source, notes
+                ) VALUES (?, ?, ?, ?, ?)
+            """, (
+                account_id,
+                balance_cents,
+                datetime.now().strftime('%Y-%m-%d'),
+                'YNAB Import',
+                f'Imported from YNAB account: {account_name} (Cleared: ${cleared_balance/1000:.2f}, Uncleared: ${uncleared_balance/1000:.2f})'
+            ))
+
+        conn.commit()
+        conn.close()
+        return True
+
+    except (sqlite3.Error, IOError) as e:
+        st.error(f"Error importing data to database: {e}")
+        return False
+
+def get_ynab_data_from_db() -> Dict[str, Any]:
+    """Get YNAB data from SQLite database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Get budgets
+    cursor.execute("SELECT * FROM ynab_budgets")
+    budgets_data = cursor.fetchall()
+    budgets = []
+    for budget in budgets_data:
+        budgets.append({
+            'id': budget[0],
+            'name': budget[1],
+            'last_modified_on': budget[2],
+            'first_month': budget[3],
+            'last_month': budget[4],
+            'date_format': {'format': budget[5]} if budget[5] else None,
+            'currency_format': {
+                'iso_code': budget[6],
+                'example_format': budget[7],
+                'decimal_digits': budget[8],
+                'decimal_separator': budget[9],
+                'symbol_first': budget[10],
+                'group_separator': budget[11],
+                'currency_symbol': budget[12],
+                'display_symbol': budget[13]
+            } if budget[6] else None
+        })
+
+    # Get categories
+    cursor.execute("SELECT * FROM ynab_categories")
+    categories_data = cursor.fetchall()
+    categories = []
+    for cat in categories_data:
+        categories.append({
+            'id': cat[0],
+            'name': cat[1],
+            'category_group_id': cat[2],
+            'category_group_name': cat[3],
+            'full_name': cat[4],
+            'hidden': bool(cat[5]),
+            'original_category_group_id': cat[6],
+            'note': cat[7],
+            'budgeted': cat[8],
+            'activity': cat[9],
+            'balance': cat[10],
+            'goal_type': cat[11],
+            'goal_creation_month': cat[12],
+            'goal_target': cat[13],
+            'goal_target_month': cat[14],
+            'goal_percentage_complete': cat[15],
+            'deleted': bool(cat[16])
+        })
+
+    # Get transactions
+    cursor.execute("SELECT * FROM ynab_transactions")
+    transactions_data = cursor.fetchall()
+    transactions = []
+    for txn in transactions_data:
+        transactions.append({
+            'id': txn[0],
+            'date': txn[1],
+            'amount': txn[2],
+            'memo': txn[3],
+            'cleared': txn[4],
+            'approved': bool(txn[5]),
+            'flag_color': txn[6],
+            'flag_name': txn[7],
+            'account_id': txn[8],
+            'account_name': txn[9],
+            'payee_id': txn[10],
+            'payee_name': txn[11],
+            'category_id': txn[12],
+            'category_name': txn[13],
+            'transfer_account_id': txn[14],
+            'transfer_transaction_id': txn[15],
+            'matched_transaction_id': txn[16],
+            'import_id': txn[17],
+            'import_payee_name': txn[18],
+            'import_payee_name_original': txn[19],
+            'debt_transaction_type': txn[20],
+            'deleted': bool(txn[21]),
+            'subtransactions': []  # Subtransactions would need separate query
+        })
+
+    # Get accounts
+    cursor.execute("SELECT * FROM ynab_accounts")
+    accounts_data = cursor.fetchall()
+    accounts = []
+    for account in accounts_data:
+        accounts.append({
+            'id': account[0],
+            'name': account[1],
+            'type': account[2],
+            'on_budget': bool(account[3]),
+            'closed': bool(account[4]),
+            'note': account[5],
+            'balance': account[6],
+            'cleared_balance': account[7],
+            'uncleared_balance': account[8],
+            'transfer_payee_id': account[9],
+            'direct_import_linked': bool(account[10]),
+            'direct_import_in_error': bool(account[11]),
+            'last_reconciled_at': account[12],
+            'debt_interest_rates': account[13],
+            'debt_minimum_payments': account[14],
+            'debt_escrow_amounts': account[15],
+            'deleted': bool(account[16])
+        })
+
+    conn.close()
+
+    return {
+        'budgets': budgets,
+        'categories': categories,
+        'transactions': transactions,
+        'accounts': accounts,
+        'metadata': {
+            'export_timestamp': datetime.now().isoformat(),
+            'budget_id': budgets[0]['id'] if budgets else None,
+            'total_budgets': len(budgets),
+            'total_categories': len(categories),
+            'total_transactions': len(transactions),
+            'total_accounts': len(accounts),
+            'data_source': 'sqlite_database'
+        }
+    }
 
 def render():
     """Main render function for the YNAB Export Data tool."""
     st.title("📥 YNAB Data Export")
-    st.write("Export all YNAB data to a JSON file for use by other tools.")
+    st.write("Export live YNAB data to JSON files or directly to the database.")
 
     # Check API key
     if not os.getenv('YNAB_API_KEY'):
@@ -230,63 +594,182 @@ def render():
 
     st.write(f"📊 Selected budget: **{budget_name}**")
 
-    # File name input
-    st.subheader("📁 Export Settings")
+    # Export destination selection
+    st.subheader("📁 Export Destination")
+    export_destination = st.radio(
+        "Choose export destination:",
+        ["📄 JSON File", "🗄️ SQLite Database"],
+        index=0,
+        help="Export to a JSON file or directly import into the SQLite database"
+    )
 
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        filename = st.text_input(
-            "Export filename",
-            value=f"ynab_data_{budget_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-            help="Filename for the exported JSON data"
-        )
-    with col2:
-        st.write("")  # Spacer
-        st.write("")  # Spacer
-        if st.button("📥 Export Data", type="primary"):
-            with st.spinner("Fetching all YNAB data..."):
-                try:
-                    # Fetch all data
-                    data = fetch_all_ynab_data(budget_id, configuration)
+    if export_destination == "🗄️ SQLite Database":
+        # Check if database exists
+        if not os.path.exists('accounts.db'):
+            st.error("❌ **Database not found**")
+            st.markdown("""
+            The accounts.db file doesn't exist. Please:
 
-                    # Save to file
-                    if save_data_to_file(data, filename):
-                        st.success(f"✅ **Data exported successfully!**")
-                        st.write(f"📁 **File saved as:** `{filename}`")
+            1. **Create the database** using the account management tools
+            2. **Or export to JSON File** instead
+            """)
+            return
 
-                        # Show summary
-                        metadata = data.get('metadata', {})
-                        st.write("**Export Summary:**")
-                        st.write(f"• **Budgets:** {metadata.get('total_budgets', 0)}")
-                        st.write(f"• **Categories:** {metadata.get('total_categories', 0)}")
-                        st.write(f"• **Transactions:** {metadata.get('total_transactions', 0)}")
-                        st.write(f"• **Accounts:** {metadata.get('total_accounts', 0)}")
-                        st.write(f"• **Export Time:** {metadata.get('export_timestamp', 'Unknown')}")
+        # Check if YNAB tables exist
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'ynab_%'")
+        ynab_tables = cursor.fetchall()
+        conn.close()
 
-                        # Offer download
-                        with open(filename, 'r', encoding='utf-8') as f:
-                            file_content = f.read()
+        if not ynab_tables:
+            st.error("❌ **No YNAB tables found in database**")
+            st.markdown("""
+            No YNAB tables found in the database. Please:
 
-                        st.download_button(
-                            label="📥 Download JSON File",
-                            data=file_content,
-                            file_name=filename,
-                            mime="application/json"
-                        )
-                    else:
-                        st.error("❌ **Failed to save data to file**")
+            1. **Create YNAB tables** using the database tools
+            2. **Or export to JSON File** instead
+            """)
+            return
 
-                except Exception as e:
-                    st.error(f"❌ **Error exporting data**: {str(e)}")
+        st.success(f"✅ **Found YNAB tables in database** ({len(ynab_tables)} tables)")
 
-    # Show existing files
-    st.subheader("📋 Existing Export Files")
+        # Show database summary
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        st.write("📊 **Current Database Summary:**")
+        for table in ynab_tables:
+            table_name = table[0]
+            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+            count = cursor.fetchone()[0]
+            st.write(f"• **{table_name}**: {count:,} records")
+
+        conn.close()
+
+        # Database import options
+        st.subheader("🗄️ Database Import Settings")
+
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.write("**Import Options:**")
+            st.write("• **Replace existing data**: All YNAB tables will be cleared and repopulated")
+            st.write("• **Fresh data**: Always pulls the latest data from YNAB API")
+            st.write("• **Complete import**: Includes budgets, categories, transactions, and accounts")
+
+        with col2:
+            st.write("")  # Spacer
+            st.write("")  # Spacer
+            if st.button("🗄️ Import to Database", type="primary"):
+                with st.spinner("Fetching live YNAB data and importing to database..."):
+                    try:
+                        # Fetch all data from live API
+                        data = fetch_all_ynab_data(budget_id, configuration)
+
+                        # Import to database
+                        success = import_ynab_data_to_db(data, budget_id)
+
+                        if success:
+                            st.success("✅ **Data imported to database successfully!**")
+
+                            # Show summary
+                            metadata = data.get('metadata', {})
+                            st.write("**Import Summary:**")
+                            st.write(f"• **Budgets:** {metadata.get('total_budgets', 0)}")
+                            st.write(f"• **Categories:** {metadata.get('total_categories', 0)}")
+                            st.write(f"• **Transactions:** {metadata.get('total_transactions', 0)}")
+                            st.write(f"• **Accounts:** {metadata.get('total_accounts', 0)}")
+                            st.write(f"• **Import Time:** {metadata.get('export_timestamp', 'Unknown')}")
+                            st.write("• **Data Source:** Live YNAB API")
+
+                            # Show balance snapshots created
+                            conn = get_db_connection()
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                SELECT COUNT(*) FROM balance_snapshot
+                                WHERE source = 'YNAB Import' AND as_of_date = ?
+                            """, (datetime.now().strftime('%Y-%m-%d'),))
+                            balance_snapshots_count = cursor.fetchone()[0]
+                            st.write(f"• **Balance Snapshots Created:** {balance_snapshots_count}")
+                            conn.close()
+
+                            # Show updated database summary
+                            conn = get_db_connection()
+                            cursor = conn.cursor()
+
+                            st.write("📊 **Updated Database Summary:**")
+                            for table in ynab_tables:
+                                table_name = table[0]
+                                cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                                count = cursor.fetchone()[0]
+                                st.write(f"• **{table_name}**: {count:,} records")
+
+                            conn.close()
+                        else:
+                            st.error("❌ **Failed to import data to database**")
+
+                    except Exception as e:
+                        st.error(f"❌ **Error importing data**: {str(e)}")
+
+    else:
+        # JSON file export (original functionality)
+        st.subheader("📄 JSON File Export Settings")
+
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            filename = st.text_input(
+                "Export filename",
+                value=f"ynab_data_{budget_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                help="Filename for the exported JSON data"
+            )
+        with col2:
+            st.write("")  # Spacer
+            st.write("")  # Spacer
+            if st.button("📥 Export to JSON", type="primary"):
+                with st.spinner("Fetching live YNAB data..."):
+                    try:
+                        # Fetch all data from live API
+                        data = fetch_all_ynab_data(budget_id, configuration)
+
+                        # Save to file
+                        if save_data_to_file(data, filename):
+                            st.success("✅ **Data exported to JSON successfully!**")
+                            st.write(f"📁 **File saved as:** `{filename}`")
+
+                            # Show summary
+                            metadata = data.get('metadata', {})
+                            st.write("**Export Summary:**")
+                            st.write(f"• **Budgets:** {metadata.get('total_budgets', 0)}")
+                            st.write(f"• **Categories:** {metadata.get('total_categories', 0)}")
+                            st.write(f"• **Transactions:** {metadata.get('total_transactions', 0)}")
+                            st.write(f"• **Accounts:** {metadata.get('total_accounts', 0)}")
+                            st.write(f"• **Export Time:** {metadata.get('export_timestamp', 'Unknown')}")
+                            st.write("• **Data Source:** Live YNAB API")
+
+                            # Offer download
+                            with open(filename, 'r', encoding='utf-8') as f:
+                                file_content = f.read()
+
+                            st.download_button(
+                                label="📥 Download JSON File",
+                                data=file_content,
+                                file_name=filename,
+                                mime="application/json"
+                            )
+                        else:
+                            st.error("❌ **Failed to save data to file**")
+
+                    except Exception as e:
+                        st.error(f"❌ **Error exporting data**: {str(e)}")
+
+    # Show existing JSON files
+    st.subheader("📋 Existing JSON Export Files")
 
     # Look for existing YNAB export files
     json_files = [f for f in os.listdir('.') if f.startswith('ynab_data_') and f.endswith('.json')]
 
     if json_files:
-        st.write(f"Found {len(json_files)} existing export files:")
+        st.write(f"Found {len(json_files)} existing JSON export files:")
 
         for file in sorted(json_files, reverse=True):  # Show newest first
             try:
@@ -319,36 +802,43 @@ def render():
                     try:
                         export_dt = datetime.fromisoformat(export_time)
                         st.caption(f"Exported: {export_dt.strftime('%Y-%m-%d %H:%M:%S')}")
-                    except:
+                    except ValueError:
                         st.caption(f"Exported: {export_time}")
 
                 st.markdown("---")
 
-            except Exception as e:
+            except (IOError, OSError, json.JSONDecodeError) as e:
                 st.write(f"**{file}** (Error reading: {e})")
                 st.markdown("---")
     else:
-        st.info("No existing export files found. Create your first export above!")
+        st.info("No existing JSON export files found. Create your first export above!")
 
     # Help section
     with st.expander("ℹ️ About this tool"):
         st.markdown("""
         **What this tool does:**
-        - Exports ALL YNAB data for a selected budget to a JSON file
+        - Always fetches LIVE data from YNAB API (never cached)
+        - Exports ALL YNAB data for a selected budget
         - Includes budgets, categories, transactions, and accounts
-        - Creates a complete snapshot of your YNAB data
+        - Creates a complete snapshot of your current YNAB data
+
+        **Export Destinations:**
+        - **JSON File**: Creates a downloadable JSON file for offline use
+        - **SQLite Database**: Directly imports data into your local database and creates balance snapshots for linked accounts
 
         **What's included in the export:**
         - **Budgets**: All budget information and settings
         - **Categories**: All categories with their groups and metadata
         - **Transactions**: All transactions with full details
         - **Accounts**: All accounts with balances and settings
+        - **Balance Snapshots**: For accounts linked to YNAB accounts, creates balance_snapshot records
         - **Metadata**: Export timestamp and summary statistics
 
         **How to use the exported data:**
-        - Other YNAB tools can load this data instead of making API calls
-        - Useful for offline analysis or when API rate limits are hit
-        - Provides consistent data snapshot across all tools
+        - **JSON files**: Other YNAB tools can load this data instead of making API calls
+        - **Database**: Other tools can query the database directly for faster access
+        - **Offline analysis**: Useful when API rate limits are hit or for offline work
+        - **Data backup**: Provides consistent data snapshot across all tools
 
         **File format:**
         - Standard JSON format

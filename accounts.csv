@@ -1,0 +1,48 @@
+account_id,budget_id,ynab_account_id,id,name,parent_id,type,side,currency,institution,notes,apr_bps,credit_limit_cents,budget_id,ynab_account_id,name,type,on_budget,closed,note,balance,cleared_balance,uncleared_balance,transfer_payee_id,direct_import_linked,direct_import_in_error,last_reconciled_at,deleted,updated_at_utc
+cc.chase,27f8801d-262c-433b-b49a-95603c75e9e6,ef27baf5-d07a-4973-b876-0b06518308dc,cc.chase,Chase,cc,LIABILITY,credit,USD,Chase,,2000,2700000,27f8801d-262c-433b-b49a-95603c75e9e6,ef27baf5-d07a-4973-b876-0b06518308dc,"Chase Credit Card",creditCard,1,0,,-10170070,-10116600,-53470,79fd41f0-99fe-4195-be6b-df45a1b01911,1,0,2024-05-05T16:59:01+00:00,0,2025-10-13T11:21:54.114713
+cc.amazon,27f8801d-262c-433b-b49a-95603c75e9e6,6779bcdc-fe55-4098-8d6f-996c00da3c7e,cc.amazon,Amazon,cc,LIABILITY,credit,USD,Synchrony?,,2599,627200,27f8801d-262c-433b-b49a-95603c75e9e6,6779bcdc-fe55-4098-8d6f-996c00da3c7e,"Amazon Credit Card",creditCard,1,0,,-151370,-439370,288000,e0005313-f760-4db0-923b-77ba005cc1d8,1,1,2025-07-18T02:07:54+00:00,0,2025-10-13T11:21:54.115704
+cc.bestbuy,27f8801d-262c-433b-b49a-95603c75e9e6,66e4bc7d-98e5-465b-9cda-afcb7aa2230a,cc.bestbuy,"Best Buy",cc,LIABILITY,credit,USD,Citi?,,,,27f8801d-262c-433b-b49a-95603c75e9e6,66e4bc7d-98e5-465b-9cda-afcb7aa2230a,"My Best Buy® Visa® Card - 4486",creditCard,1,0,,-2195480,-2966480,771000,0f0885ba-9425-4a87-a5e2-e007f779dfe5,0,0,,0,2025-10-13T11:21:54.115704
+loan.golfcart.lawn,27f8801d-262c-433b-b49a-95603c75e9e6,47116fbc-3eb5-410b-bce0-ec23aa7b5b6b,loan.golfcart.lawn,"Golf Cart (Lawn card)",loans,LIABILITY,credit,USD,Lawn,,,,27f8801d-262c-433b-b49a-95603c75e9e6,47116fbc-3eb5-410b-bce0-ec23aa7b5b6b,"Golf Cart",personalLoan,0,0,,-4141400,-5000000,858600,6712b2ec-e76d-4c6a-b6ae-8016efa47337,0,0,,0,2025-10-13T11:21:54.115704
+loan.jeep.ornl,27f8801d-262c-433b-b49a-95603c75e9e6,b1b58137-b70e-4355-9157-2edd5e95e130,loan.jeep.ornl,"Jeep (ORNL)",loans,LIABILITY,credit,USD,ORNL,,,,27f8801d-262c-433b-b49a-95603c75e9e6,b1b58137-b70e-4355-9157-2edd5e95e130,"2012 JEEP WRANGLER - 2012 JEEP WRANGLER",autoLoan,0,0,,-14190160,-16280110,2089950,4ef39ab2-8459-427b-8ccd-af506b4819a5,1,0,,0,2025-10-13T11:21:54.114713
+cash.savings,27f8801d-262c-433b-b49a-95603c75e9e6,e3647aa6-5d1a-44bf-8c41-ce44d0009739,cash.savings,Savings,cash,ASSET,debit,USD,"Bank (Mobile)",,,,27f8801d-262c-433b-b49a-95603c75e9e6,e3647aa6-5d1a-44bf-8c41-ce44d0009739,"Tva Credit Union Savings",savings,1,0,,4113140,4113140,0,4aa07b36-60cd-4716-b655-f4c7879f0a2e,1,0,,0,2025-10-13T11:21:54.115704
+loan.lowes,27f8801d-262c-433b-b49a-95603c75e9e6,a2ed91a3-e1f5-430f-ab4f-75332c987389,loan.lowes,Lowes,loans,LIABILITY,credit,USD,Lowes,,,,27f8801d-262c-433b-b49a-95603c75e9e6,a2ed91a3-e1f5-430f-ab4f-75332c987389,"MyLowe's Rewards Credit Card - MyLowe's Rewards Credit Card",creditCard,1,0,,-1794150,-3519260,1725110,59c0b2c4-d470-4e8b-a144-141dc836043c,1,1,,0,2025-10-13T11:21:54.115704
+,,,cash,Cash,,ASSET,debit,USD,,,,,,,,,,,,,,,,,,,,
+,,,cash.checking,Checking,cash,ASSET,debit,USD,"Bank (Mobile)",,,,,,,,,,,,,,,,,,,
+,,,crypto,Crypto,,ASSET,debit,USD,,,,,,,,,,,,,,,,,,,,
+,,,crypto.coinbase,Coinbase,crypto,ASSET,debit,USD,Coinbase,,,,,,,,,,,,,,,,,,,
+,,,greenlight,Greenlight,,ASSET,debit,USD,Greenlight,,,,,,,,,,,,,,,,,,,
+,,,gl.parents,Parents,greenlight,ASSET,debit,USD,Greenlight,,,,,,,,,,,,,,,,,,,
+,,,gl.cody.spending,"Cody - Spending",greenlight,ASSET,debit,USD,Greenlight,,,,,,,,,,,,,,,,,,,
+,,,gl.cody.savings,"Cody - Savings",greenlight,ASSET,debit,USD,Greenlight,,,,,,,,,,,,,,,,,,,
+,,,gl.amanda.spending,"Amanda - Spending",greenlight,ASSET,debit,USD,Greenlight,,,,,,,,,,,,,,,,,,,
+,,,gl.amanda.savings,"Amanda - Savings",greenlight,ASSET,debit,USD,Greenlight,,,,,,,,,,,,,,,,,,,
+,,,gl.harris,Harris,greenlight,ASSET,debit,USD,Greenlight,,,,,,,,,,,,,,,,,,,
+,,,gl.george,George,greenlight,ASSET,debit,USD,Greenlight,,,,,,,,,,,,,,,,,,,
+,,,cc,"Credit Cards",,LIABILITY,credit,USD,,,,,,,,,,,,,,,,,,,,
+,,,cc.bofa.cashrewards.4375,"BoA Cash Rewards (4375)",cc,LIABILITY,credit,USD,"Bank of America",,1290,,,,,,,,,,,,,,,,,
+,,,cc.tractor_supply,"Tractor Supply",cc,LIABILITY,credit,USD,"Tractor Supply",,,,,,,,,,,,,,,,,,,
+,,,cc.bofa.world.0603,"BoA World (0603)",cc,LIABILITY,credit,USD,"Bank of America",,874,1330000,,,,,,,,,,,,,,,,
+,,,cc.lendmark.coop,"Lendmark (Coop)",cc,LIABILITY,credit,USD,Lendmark,,,,,,,,,,,,,,,,,,,
+,,,cc.homedepot,"Home Depot",cc,LIABILITY,credit,USD,Citi?,,,,,,,,,,,,,,,,,,,
+,,,loans,Loans,,LIABILITY,credit,USD,,,,,,,,,,,,,,,,,,,,
+,,,loan.truck.mobile,"Truck (Mobile)",loans,LIABILITY,credit,USD,"Bank (Mobile)",,,,,,,,,,,,,,,,,,,
+,,,loan.student.aes,"Student Loans (AES)",loans,LIABILITY,credit,USD,AES,,,,,,,,,,,,,,,,,,,
+,,,loan.tractor,Tractor,loans,LIABILITY,credit,USD,"",,,,,,,,,,,,,,,,,,,
+,,,invest,Investments,,INVESTMENT,debit,USD,,,,,,,,,,,,,,,,,,,,
+,,,invest.medcom,Medcom,invest,INVESTMENT,debit,USD,Medcom,,,,,,,,,,,,,,,,,,,
+,,,invest.fidelity.inap401k,"Fidelity INAP 401K",invest,INVESTMENT,debit,USD,Fidelity,,,,,,,,,,,,,,,,,,,
+,,,invest.fidelity.mdf401k,"Fidelity MDF 401K",invest,INVESTMENT,debit,USD,Fidelity,,,,,,,,,,,,,,,,,,,
+,,,invest.principal.p2s401k,"Principal #1 (P2S 401K)",invest,INVESTMENT,debit,USD,Principal,,,,,,,,,,,,,,,,,,,
+,,,invest.principal.p2sesop,"Principal #2 (P2S ESOP)",invest,INVESTMENT,debit,USD,Principal,,,,,,,,,,,,,,,,,,,
+,,,invest.etrade,Etrade,invest,INVESTMENT,debit,USD,E*TRADE,,,,,,,,,,,,,,,,,,,
+,,,home,Home,,ASSET,debit,USD,,,,,,,,,,,,,,,,,,,,
+,,,house.value,"House Value",home,ASSET,debit,USD,,,,,,,,,,,,,,,,,,,,
+,,,mortgage,Mortgage,,LIABILITY,credit,USD,,,,,,,,,,,,,,,,,,,,
+,,,mortgage.primary.movement,"Mortgage (Movement)",mortgage,LIABILITY,credit,USD,"Movement Mortgage",,,,,,,,,,,,,,,,,,,
+,,,mortgage.tva.second,"TVA 2nd Mortgage",mortgage,LIABILITY,credit,USD,TVA,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,27f8801d-262c-433b-b49a-95603c75e9e6,d15266a6-b1f3-4431-88b4-9ddfe3cc873e,"PayPal - PayPal",checking,1,0,,44330,44330,0,b3e33758-d059-4be8-8654-a64189a3469e,0,0,,0,2025-10-13T11:21:54.114713
+,,,,,,,,,,,,,27f8801d-262c-433b-b49a-95603c75e9e6,8c7cbfa7-0db6-453b-a763-f813120cca73,"BankAmericard Rewards World Mastercard Card - BankAmericard Rewards World Mastercard Card",creditCard,1,0,,-21247650,-21297650,50000,231bb3f9-999e-4fc5-a262-39f3331247b9,1,0,2025-07-18T02:24:34+00:00,0,2025-10-13T11:21:54.114713
+,,,,,,,,,,,,,27f8801d-262c-433b-b49a-95603c75e9e6,becdaf50-4c74-4f3e-bee1-81708020e88e,"Customized Cash Rewards Visa Signature - Customized Cash Rewards Visa Signature",creditCard,1,0,,66490,66490,0,9ec63141-a2af-42e0-80fc-1bd4df296703,1,0,2025-07-18T02:25:02+00:00,0,2025-10-13T11:21:54.114713
+,,,,,,,,,,,,,27f8801d-262c-433b-b49a-95603c75e9e6,d2f6a22f-dba7-463e-9856-a238d99cf63c,"MEMBERSHIP ACCOUNT - MEMBERSHIP ACCOUNT",savings,1,0,,59230,59230,0,eb252709-1275-4b1e-b054-f7734124f09d,1,0,,0,2025-10-13T11:21:54.114713
+,,,,,,,,,,,,,27f8801d-262c-433b-b49a-95603c75e9e6,f0cb8c40-fd16-4d15-8902-231f531c6cfe,"Tva Credit Union",checking,1,0,,5052400,5118400,-66000,d53dc30c-980d-47b9-ac76-9835271171e8,1,0,2025-06-22T13:59:48+00:00,0,2025-10-13T11:21:54.115704
+,,,,,,,,,,,,,27f8801d-262c-433b-b49a-95603c75e9e6,3b3bd425-d137-42b4-aa2d-59afe63a593c,"2020 RAM 1500 (Carmax)",autoLoan,0,0,,-39349770,-42468050,3118280,118296b4-2b58-4c43-92d9-44ea52c6250d,0,0,,0,2025-10-13T11:21:54.115704

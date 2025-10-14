@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import pandas as pd
 import json
+import sqlite3
 from datetime import datetime, timedelta
 from typing import List, Dict, Tuple, Optional
 from collections import defaultdict
@@ -20,6 +21,10 @@ try:
     YNAB_AVAILABLE = True
 except ImportError:
     YNAB_AVAILABLE = False
+
+def get_db_connection():
+    """Get database connection."""
+    return sqlite3.connect('accounts.db')
 
 def load_data_from_json(filename: str) -> Optional[Dict]:
     """Load YNAB data from JSON file."""
@@ -73,6 +78,26 @@ def get_categories_from_json(json_data: Dict) -> Dict[str, Dict]:
             'full_name': f"{cat['category_group_name']} > {cat['name']}",  # Build full_name for compatibility
             'id': cat['id']
         }
+    return category_mapping
+
+def get_categories_from_db() -> Dict[str, Dict]:
+    """Get all categories from SQLite database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, name, category_group_id, category_group_name FROM ynab_categories")
+    categories_data = cursor.fetchall()
+
+    category_mapping = {}
+    for cat in categories_data:
+        category_mapping[cat[0]] = {
+            'name': cat[1],
+            'group_name': cat[3],
+            'full_name': f"{cat[3]} > {cat[1]}",
+            'id': cat[0]
+        }
+
+    conn.close()
     return category_mapping
 
 def get_categories(budget_id: str, configuration) -> Dict[str, Dict]:
@@ -129,10 +154,56 @@ def get_transactions_for_month_from_json(json_data: Dict, year: int, month: int)
                             'cleared': txn.get('cleared'),
                             'approved': txn.get('approved')
                         })
-        except (ValueError, AttributeError, TypeError) as e:
+        except (ValueError, AttributeError, TypeError):
             # Skip transactions with invalid dates
             continue
 
+    return month_transactions
+
+def get_transactions_for_month_from_db(year: int, month: int) -> List[Dict]:
+    """Get all transactions for a specific month from SQLite database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Query transactions for the specific month with proper category and payee names
+    cursor.execute("""
+        SELECT t.id, t.date, t.amount, t.memo, t.cleared, t.approved,
+               t.account_id, t.account_name, t.payee_id, t.payee_name,
+               t.category_id, t.category_name, t.transfer_account_id,
+               c.name as category_name_from_cat, c.category_group_name,
+               p.name as payee_name_from_payees
+        FROM ynab_transactions t
+        LEFT JOIN ynab_categories c ON t.category_id = c.id
+        LEFT JOIN ynab_payees p ON t.payee_id = p.id
+        WHERE strftime('%Y', t.date) = ? AND strftime('%m', t.date) = ?
+        AND t.amount != 0 AND t.transfer_account_id IS NULL
+    """, (str(year), f"{month:02d}"))
+
+    transactions_data = cursor.fetchall()
+
+    month_transactions = []
+    for txn in transactions_data:
+        # Use category name from categories table if available, otherwise use transaction's category_name
+        category_name = txn[13] if txn[13] else (txn[11] if txn[11] else '❓ Uncategorized')
+
+        # Use payee name from payees table if available, otherwise use transaction's payee_name
+        payee_name = txn[15] if txn[15] else (txn[8] if txn[8] else 'Unknown Payee')
+
+        month_transactions.append({
+            'id': txn[0],
+            'date': txn[1],
+            'payee_name': payee_name,
+            'memo': txn[3] or '',
+            'amount': txn[2],
+            'category_id': txn[10] or 'uncategorized',
+            'category_name': category_name,
+            'account_id': txn[6],
+            'account_name': txn[7] or 'Unknown Account',
+            'cleared': txn[4],
+            'approved': bool(txn[5])
+        })
+
+    conn.close()
     return month_transactions
 
 def get_transactions_for_month(budget_id: str, configuration, year: int, month: int) -> List[Dict]:
@@ -178,7 +249,7 @@ def get_transactions_for_month(budget_id: str, configuration, year: int, month: 
                                 'cleared': txn.cleared,
                                 'approved': txn.approved
                             })
-            except (ValueError, AttributeError, TypeError) as e:
+            except (ValueError, AttributeError, TypeError):
                 # Skip transactions with invalid dates
                 continue
 
@@ -677,16 +748,64 @@ def render():
     st.subheader("📊 Data Source")
     data_source = st.radio(
         "Choose data source:",
-        ["🔄 Live YNAB API", "📁 Cached JSON File"],
+        ["🗄️ SQLite Database", "📁 Cached JSON File", "🔄 Live YNAB API"],
         index=0,
-        help="Use live API data or load from a previously exported JSON file"
+        help="Use cached database data, previously exported JSON files, or fetch live data from YNAB API"
     )
 
     json_data = None
     categories = {}
     budget_id = None
 
-    if data_source == "📁 Cached JSON File":
+    if data_source == "🗄️ SQLite Database":
+        # Check if database exists and has YNAB data
+        if not os.path.exists('accounts.db'):
+            st.error("❌ **Database not found**")
+            st.markdown("""
+            The accounts.db file doesn't exist. Please:
+
+            1. **Import YNAB data** using the database import tools
+            2. **Or use Cached JSON File** or **Live YNAB API** instead
+            """)
+            return
+
+        # Check if YNAB tables exist
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'ynab_%'")
+        ynab_tables = cursor.fetchall()
+        conn.close()
+
+        if not ynab_tables:
+            st.error("❌ **No YNAB data found in database**")
+            st.markdown("""
+            No YNAB tables found in the database. Please:
+
+            1. **Import YNAB data** using the database import tools
+            2. **Or use Cached JSON File** or **Live YNAB API** instead
+            """)
+            return
+
+        st.success(f"✅ **Found YNAB data in database** ({len(ynab_tables)} tables)")
+
+        # Show database summary
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        st.write("📊 **Database Summary:**")
+        for table in ynab_tables:
+            table_name = table[0]
+            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+            count = cursor.fetchone()[0]
+            st.write(f"• **{table_name}**: {count:,} records")
+
+        conn.close()
+
+        # Get categories from database
+        categories = get_categories_from_db()
+        st.write(f"📊 Found {len(categories)} categories in database")
+
+    elif data_source == "📁 Cached JSON File":
         # Load from JSON file
         json_files = get_available_json_files()
 
@@ -809,7 +928,9 @@ def render():
     # Get transactions for the selected month
     try:
         with st.spinner("Loading transactions..."):
-            if data_source == "📁 Cached JSON File" and json_data:
+            if data_source == "🗄️ SQLite Database":
+                transactions = get_transactions_for_month_from_db(year, month)
+            elif data_source == "📁 Cached JSON File" and json_data:
                 transactions = get_transactions_for_month_from_json(json_data, year, month)
             else:
                 transactions = get_transactions_for_month(budget_id, configuration, year, month)
@@ -828,7 +949,36 @@ def render():
                 # Try to get ALL transactions to see what's available
                 st.write("**Checking all transactions in budget...**")
                 try:
-                    if data_source == "📁 Cached JSON File" and json_data:
+                    if data_source == "🗄️ SQLite Database":
+                        conn = get_db_connection()
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT COUNT(*) FROM ynab_transactions")
+                        all_transactions_count = cursor.fetchone()[0]
+
+                        # Get sample transactions for debugging
+                        cursor.execute("""
+                            SELECT t.date, t.payee_name, t.amount, t.category_id, t.category_name,
+                                   c.name as category_name_from_cat, p.name as payee_name_from_payees
+                            FROM ynab_transactions t
+                            LEFT JOIN ynab_categories c ON t.category_id = c.id
+                            LEFT JOIN ynab_payees p ON t.payee_id = p.id
+                            WHERE strftime('%Y', t.date) = ? AND strftime('%m', t.date) = ?
+                            LIMIT 5
+                        """, (str(year), f"{month:02d}"))
+                        sample_transactions = cursor.fetchall()
+
+                        conn.close()
+                        st.write(f"• Total transactions in database: {all_transactions_count}")
+
+                        if sample_transactions:
+                            st.write("**Sample transactions for selected month:**")
+                            for txn in sample_transactions:
+                                category_name = txn[5] if txn[5] else (txn[4] if txn[4] else 'No Category')
+                                payee_name = txn[6] if txn[6] else (txn[1] if txn[1] else 'No Payee')
+                                st.write(f"• {txn[0]} | {payee_name} | ${txn[2]/1000:.2f} | Category: {category_name}")
+
+                        all_transactions = []  # Empty list for database case in debug
+                    elif data_source == "📁 Cached JSON File" and json_data:
                         all_transactions = json_data.get('transactions', [])
                     else:
                         with ynab.ApiClient(configuration) as api_client:
@@ -836,7 +986,8 @@ def render():
                             all_response = transactions_api.get_transactions(budget_id)
                             all_transactions = all_response.data.transactions
 
-                    st.write(f"• Total transactions in budget: {len(all_transactions)}")
+                    if data_source != "🗄️ SQLite Database":
+                        st.write(f"• Total transactions in budget: {len(all_transactions)}")
 
                     # Check transactions by month
                     monthly_counts = defaultdict(int)
@@ -1164,6 +1315,11 @@ def render():
         - Flow thickness represents the amount of money
         - Shows all transactions including uncategorized ones (in "❓ Uncategorized" category)
         - Excludes only transfer transactions
+
+        **Data Sources:**
+        - **SQLite Database**: Fast analysis from cached database data
+        - **Cached JSON File**: Analysis from previously exported JSON files
+        - **Live YNAB API**: Fresh data directly from YNAB servers
 
         **How to interpret the diagram:**
         - **Left side**: Groups (Bills, Wants, Needs, etc.)

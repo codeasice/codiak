@@ -75,8 +75,8 @@ RENDER_FUNC_MAP = {
     'FindUnupdatedLinks': tools.find_unupdated_links.render,
     'RemoveEmojiLinks': tools.remove_emoji_links.render,
     'ReplaceTag': tools.replace_tag.render,
-    'YnabListBudgets': tools.ynab_list_budgets.render,
-    'YnabGetTransactions': tools.ynab_get_transactions.render,
+    'Budgets': tools.ynab_list_budgets.render,
+    'Transactions': tools.ynab_get_transactions.render,
     'YnabCreateTransaction': tools.ynab_create_transaction.render,
     'TagSearch': tools.tag_search.render,
     'HomeAssistantSensors': tools.home_assistant_sensors.render,
@@ -95,6 +95,7 @@ RENDER_FUNC_MAP = {
     'YnabListCategories': tools.ynab_list_categories.render,
     'YnabAlluvialDiagram': tools.ynab_alluvial_diagram.render,
     'YnabExportData': tools.ynab_export_data.render,
+    'YnabPayeeManager': tools.ynab_payee_manager.render,
     'HomeAutomationCategorizer': tools.home_automation_categorizer.render,
     'TableCreator': tools.table_creator.render,
     'MarkdownTableConverter': tools.markdown_table_converter.render,
@@ -103,8 +104,10 @@ RENDER_FUNC_MAP = {
     'AwsEc2Manager': tools.aws_ec2_manager.render,
     'AwsCostMonitor': tools.aws_cost_monitor.render,
     'DndCharacterEditor': tools.dnd_character_editor.render,
+    'AccountDashboard': tools.account_dashboard.render,
     'AccountManager': tools.account_manager.render,
     'CreditCardInterest': tools.credit_card_interest.render,
+    'AccountLinkManager': tools.account_link_manager.render,
 }
 
 def show_tool_directory():

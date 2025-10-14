@@ -278,5 +278,12 @@
     "category_id": "c5bc821a-65db-45f7-9c12-960572dac18f",
     "created_at": "2025-08-25T12:06:28.646639",
     "updated_at": "2025-08-25T12:06:28.646639"
+  },
+  {
+    "match": "Weigel Stores",
+    "type": "contains",
+    "category_id": "51b20def-b44d-403c-81ce-c4635567be7e",
+    "created_at": "2025-10-13T14:26:09.037589",
+    "updated_at": "2025-10-13T14:26:09.037589"
   }
 ]

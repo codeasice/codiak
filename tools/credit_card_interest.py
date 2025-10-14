@@ -242,20 +242,20 @@ def render():
 
     else:
         st.success("🎉 **No Interest Charges!** All your credit cards are paid off.")
-    
+
     # Payment Calculator Section
     st.markdown("---")
     st.subheader("🧮 Payment Calculator")
     st.markdown("Calculate how much interest would be added to a payment amount using your highest APR.")
-    
+
     # Get highest APR for calculation
     if credit_cards:
         highest_apr_card = max(credit_cards, key=lambda x: x['apr_bps'])
         highest_apr = highest_apr_card['apr_bps']
         highest_apr_name = highest_apr_card['name']
-        
+
         col1, col2 = st.columns([2, 1])
-        
+
         with col1:
             payment_amount = st.number_input(
                 "Payment Amount ($)",
@@ -264,13 +264,13 @@ def render():
                 step=10.0,
                 help="Enter the payment amount you want to calculate interest for"
             )
-        
+
         with col2:
             is_monthly = st.checkbox(
                 "Monthly Payment",
                 help="Check if this is a monthly payment (will multiply by 12 for annual calculation)"
             )
-        
+
         if payment_amount > 0:
             # Calculate interest
             if is_monthly:
@@ -279,78 +279,78 @@ def render():
             else:
                 annual_payment = payment_amount
                 st.info(f"**One-time Payment**: ${payment_amount:.2f}")
-            
+
             # Calculate daily interest rate
             daily_rate = (highest_apr / 10000.0) / 365.0
-            
+
             # Calculate interest for different time periods
             daily_interest = annual_payment * daily_rate
             monthly_interest = daily_interest * 30
             annual_interest = daily_interest * 365
-            
+
             # Display results
             st.markdown("### 💰 Interest Calculation Results")
-            
+
             col1, col2, col3 = st.columns(3)
-            
+
             with col1:
                 st.metric(
                     "Daily Interest",
                     f"${daily_interest:.2f}",
                     help=f"Interest added per day at {highest_apr/100:.2f}% APR"
                 )
-            
+
             with col2:
                 st.metric(
                     "Monthly Interest",
                     f"${monthly_interest:.2f}",
                     help=f"Interest added per month at {highest_apr/100:.2f}% APR"
                 )
-            
+
             with col3:
                 st.metric(
                     "Annual Interest",
                     f"${annual_interest:.2f}",
                     help=f"Interest added per year at {highest_apr/100:.2f}% APR"
                 )
-            
+
             # Show total cost
             total_cost = annual_payment + annual_interest
             interest_percentage = (annual_interest / annual_payment) * 100 if annual_payment > 0 else 0
-            
+
             st.markdown("### 📊 Total Cost Breakdown")
-            
+
             col1, col2 = st.columns(2)
-            
+
             with col1:
                 st.success(f"""
                 **Total Annual Cost**: ${total_cost:.2f}
                 - Principal: ${annual_payment:.2f}
                 - Interest: ${annual_interest:.2f}
                 """)
-            
+
             with col2:
                 st.warning(f"""
                 **Interest Rate Impact**: {interest_percentage:.1f}%
                 - APR Used: {highest_apr/100:.2f}%
                 - Card: {highest_apr_name}
                 """)
-            
+
             # Payment scenarios
             st.markdown("### 🎯 Payment Scenarios")
-            
+
             scenarios = [
                 ("Minimum Payment", annual_payment * 0.02),  # 2% minimum
                 ("Moderate Payment", annual_payment * 0.05),  # 5% payment
                 ("Aggressive Payment", annual_payment * 0.10),  # 10% payment
             ]
-            
+
             scenario_data = []
             for scenario_name, scenario_amount in scenarios:
                 scenario_interest = scenario_amount * daily_rate * 365
                 scenario_total = scenario_amount + scenario_interest
                 scenario_percentage = (scenario_interest / scenario_amount) * 100 if scenario_amount > 0 else 0
-                
+
                 scenario_data.append({
                     "Scenario": scenario_name,
                     "Payment": f"${scenario_amount:.2f}",
@@ -358,7 +358,7 @@ def render():
                     "Total": f"${scenario_total:.2f}",
                     "Interest %": f"{scenario_percentage:.1f}%"
                 })
-            
+
             scenario_df = pd.DataFrame(scenario_data)
             st.dataframe(
                 scenario_df,
@@ -372,7 +372,7 @@ def render():
                     "Interest %": st.column_config.TextColumn("Interest %", width="small")
                 }
             )
-            
+
             # Download calculator results
             calculator_csv = scenario_df.to_csv(index=False)
             st.download_button(
@@ -381,7 +381,7 @@ def render():
                 file_name=f"payment_calculator_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv"
             )
-    
+
     else:
         st.info("No credit cards with APR information found. Add credit cards with APR values to use the calculator.")
 
