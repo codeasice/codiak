@@ -108,6 +108,8 @@ RENDER_FUNC_MAP = {
     'AccountManager': tools.account_manager.render,
     'CreditCardInterest': tools.credit_card_interest.render,
     'AccountLinkManager': tools.account_link_manager.render,
+    'ObsidianStructureAnalyzer': tools.obsidian_structure_analyzer.render,
+    'ObsidianVaultManager': tools.obsidian_vault_manager.render,
 }
 
 def show_tool_directory():

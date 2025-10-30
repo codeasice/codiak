@@ -3,6 +3,10 @@ import os
 from typing import Optional, Tuple, Dict, Any
 import json
 
+# Load environment variables first
+from dotenv import load_dotenv
+load_dotenv()
+
 # LLM integration - you can replace this with your preferred LLM service
 try:
     import openai

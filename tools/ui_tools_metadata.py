@@ -323,6 +323,14 @@ UI_TOOLS_METADATA = [
         "description": "Manage links between your local accounts and YNAB accounts. View, add, and delete account connections for data synchronization.",
         "requires_vault_path": False
     },
+    {
+        "id": "ObsidianVaultManager",
+        "short_title": "Vault Manager",
+        "long_title": "Obsidian Vault Manager",
+        "category": "Obsidian",
+        "description": "Scan your Obsidian vault structure and get AI-powered recommendations for organizing notes and finding relevant information.",
+        "requires_vault_path": True
+    },
 ]
 
 def get_tools_metadata_fast():

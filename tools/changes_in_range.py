@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import re
 from datetime import datetime, timedelta, date
+from tools.llm_utils import get_llm_suggestion
 
 # Helper: get all dates between two dates (inclusive)
 def daterange(start_date, end_date):
@@ -32,6 +33,75 @@ def find_notes_in_range(vault_path, date_prefixes, week_prefixes):
                 })
     return notes
 
+# Helper: generate LLM summary of selected notes
+def generate_notes_summary(notes, selected_paths, summary_type="general", max_tokens=500):
+    """Generate an LLM summary of selected notes."""
+    if not selected_paths:
+        return "No notes selected for summarization.", ""
+
+    # Get content of selected notes
+    selected_notes_content = []
+    for note in notes:
+        if note['rel_path'] in selected_paths:
+            try:
+                with open(note['full_path'], 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    selected_notes_content.append(f"# {note['title']}\n{content}")
+            except Exception:
+                selected_notes_content.append(f"# {note['title']}\nERROR reading note: Unable to read file")
+
+    if not selected_notes_content:
+        return "No valid notes found for summarization.", ""
+
+    # Prepare the prompt based on summary type
+    notes_text = "\n\n---\n\n".join(selected_notes_content)
+
+    if summary_type == "work":
+        prompt = f"""Please provide a concise summary of the following work-related notes. Focus on:
+- Key projects and tasks completed
+- Important decisions made
+- Progress on ongoing work
+- Any blockers or issues encountered
+
+Notes to summarize:
+{notes_text}
+
+Please provide a structured summary in bullet points."""
+    elif summary_type == "personal":
+        prompt = f"""Please provide a concise summary of the following personal notes. Focus on:
+- Personal activities and experiences
+- Thoughts and reflections
+- Personal goals and progress
+- Important life events
+
+Notes to summarize:
+{notes_text}
+
+Please provide a structured summary in bullet points."""
+    else:  # general
+        prompt = f"""Please provide a concise summary of the following notes. Focus on:
+- Key themes and topics
+- Important information and insights
+- Notable events or activities
+- Any patterns or trends
+
+Notes to summarize:
+{notes_text}
+
+Please provide a structured summary in bullet points."""
+
+    # Get LLM summary
+    summary, error = get_llm_suggestion(
+        prompt=prompt,
+        tool_name="Changes in Range",
+        function_name="generate_notes_summary",
+        model="gpt-3.5-turbo",
+        max_tokens=max_tokens,
+        temperature=0.3
+    )
+
+    return summary, error
+
 # Helper: find completed tasks in notes within range
 def find_completed_tasks(notes, start_date, end_date):
     completed = []
@@ -52,7 +122,7 @@ def find_completed_tasks(notes, start_date, end_date):
                                 'rel_path': note['rel_path'],
                                 'date': task_date
                             })
-        except Exception as e:
+        except Exception:
             continue
     return completed
 
@@ -128,26 +198,80 @@ def render(vault_path_default):
                     else:
                         selected.discard(note['rel_path'])
             st.session_state['changes_in_range_selected'] = selected
-            if st.button('Compile Selected Notes'):
-                compiled = ''
-                for note in notes:
-                    if note['rel_path'] in selected:
-                        try:
-                            with open(note['full_path'], 'r', encoding='utf-8') as f:
-                                compiled += f"\n---\n# {note['title']}\n" + f.read()
-                        except Exception as e:
-                            compiled += f"\n---\n# {note['title']}\nERROR reading note: {e}\n"
-                st.session_state['changes_in_range_compiled'] = compiled
+
+            # Summary options
+            if selected:
+                st.write("### Summarization Options")
+                col1, col2 = st.columns(2)
+                with col1:
+                    summary_type = st.selectbox(
+                        'Summary Focus',
+                        ['general', 'work', 'personal'],
+                        format_func=lambda x: {'general': 'General Summary', 'work': 'Work Focus', 'personal': 'Personal Focus'}[x],
+                        key='summary_type'
+                    )
+                with col2:
+                    max_tokens = st.selectbox(
+                        'Summary Length',
+                        [300, 500, 750, 1000],
+                        format_func=lambda x: f"{x} tokens",
+                        index=1,
+                        key='summary_tokens'
+                    )
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button('Compile Selected Notes'):
+                        compiled = ''
+                        for note in notes:
+                            if note['rel_path'] in selected:
+                                try:
+                                    with open(note['full_path'], 'r', encoding='utf-8') as f:
+                                        compiled += f"\n---\n# {note['title']}\n" + f.read()
+                                except Exception:
+                                    compiled += f"\n---\n# {note['title']}\nERROR reading note: Unable to read file\n"
+                        st.session_state['changes_in_range_compiled'] = compiled
+
+                with col2:
+                    if st.button('🤖 Summarize Selected Notes'):
+                        with st.spinner('Generating summary...'):
+                            summary, error = generate_notes_summary(
+                                notes,
+                                selected,
+                                summary_type=summary_type,
+                                max_tokens=max_tokens
+                            )
+                            if error:
+                                st.error(f"Error generating summary: {error}")
+                            else:
+                                st.session_state['changes_in_range_summary'] = summary
+                                st.session_state['changes_in_range_summary_type'] = summary_type
+            else:
+                if st.button('Compile Selected Notes'):
+                    st.warning("Please select at least one note first.")
         compiled = st.session_state.get('changes_in_range_compiled', '')
         if compiled:
             st.write('### Compiled Notes')
             st.text_area('Compiled Notes', value=compiled, height=300)
+
+        # Display generated summary
+        summary = st.session_state.get('changes_in_range_summary', '')
+        summary_type = st.session_state.get('changes_in_range_summary_type', 'general')
+        if summary:
+            st.write('### 🤖 AI Summary')
+            summary_label = {'general': 'General Summary', 'work': 'Work-Focused Summary', 'personal': 'Personal-Focused Summary'}[summary_type]
+            st.write(f"**{summary_label}**")
+            st.markdown(summary)
+
+            # Add copy button for summary
+            if st.button('📋 Copy Summary to Clipboard'):
+                st.code(summary, language="text")
+                st.success("Summary copied! (Use Ctrl+C to copy)")
     with tab_tasks:
         if tasks:
             # Prepare table data
             def parse_task_line(task_line):
                 # Remove checkbox and date from '- [x] Task Name ✅ YYYY-MM-DD'
-                import re
                 m = re.match(r'- \[x\] (.*?)(?: ✅ (\d{4}-\d{2}-\d{2}))?$', task_line)
                 if m:
                     return m.group(1)
