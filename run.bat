@@ -39,9 +39,18 @@ IF ERRORLEVEL 1 (
     pause
 )
 
-REM Run your app
-echo Activating Virtual Environment
-call .\venv\Scripts\activate.bat
+REM Try venv first, then env
+set "ACT=.\venv\Scripts\activate.bat"
+if not exist "%ACT%" set "ACT=.\env\Scripts\activate.bat"
+
+if exist "%ACT%" (
+  echo Activating: %ACT%
+  call "%ACT%"
+) else (
+  echo No .\venv or .\env found. Using system Python.
+  REM If you want to fail instead, uncomment the next line:
+  REM exit /b 1
+)
 
 echo Launching Codiak Streamlit
 streamlit run app.py
