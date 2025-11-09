@@ -140,6 +140,14 @@ UI_TOOLS_METADATA = [
         "requires_vault_path": False
     },
     {
+        "id": "YnabSpendGraph",
+        "short_title": "YNAB Spend Graph",
+        "long_title": "YNAB Daily Spend Graph",
+        "category": "Financial/YNAB",
+        "description": "Display a graph of daily YNAB transaction spend for select categories across a selected date range.",
+        "requires_vault_path": False
+    },
+    {
         "id": "TagSearch",
         "short_title": "Tag Search",
         "long_title": "Tag Search in Obsidian Notes",

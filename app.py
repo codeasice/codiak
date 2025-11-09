@@ -96,6 +96,7 @@ RENDER_FUNC_MAP = {
     'YnabAlluvialDiagram': tools.ynab_alluvial_diagram.render,
     'YnabExportData': tools.ynab_export_data.render,
     'YnabPayeeManager': tools.ynab_payee_manager.render,
+    'YnabSpendGraph': tools.ynab_spend_graph.render,
     'HomeAutomationCategorizer': tools.home_automation_categorizer.render,
     'TableCreator': tools.table_creator.render,
     'MarkdownTableConverter': tools.markdown_table_converter.render,
