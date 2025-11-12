@@ -110,6 +110,7 @@ RENDER_FUNC_MAP = {
     'AccountLinkManager': tools.account_link_manager.render,
     'ObsidianStructureAnalyzer': tools.obsidian_structure_analyzer.render,
     'ObsidianVaultManager': tools.obsidian_vault_manager.render,
+    'ObsidianNotePlacement': tools.note_placement.render,
 }
 
 def show_tool_directory():

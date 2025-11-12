@@ -331,6 +331,14 @@ UI_TOOLS_METADATA = [
         "description": "Scan your Obsidian vault structure and get AI-powered recommendations for organizing notes and finding relevant information.",
         "requires_vault_path": True
     },
+    {
+        "id": "ObsidianNotePlacement",
+        "short_title": "Note Placement",
+        "long_title": "Obsidian Note Placement Assistant",
+        "category": "Obsidian",
+        "description": "Scan top X levels (optionally from a parent note) and get LLM-recommended folder(s) to place a new note.",
+        "requires_vault_path": True
+    },
 ]
 
 def get_tools_metadata_fast():
