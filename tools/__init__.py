@@ -26,6 +26,7 @@ from . import ynab_list_categories
 from . import ynab_alluvial_diagram
 from . import ynab_export_data
 from . import ynab_payee_manager
+from . import ynab_spend_graph
 
 # Other tools
 from . import home_automation_categorizer
