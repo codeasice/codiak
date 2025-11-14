@@ -44,3 +44,4 @@ from . import account_link_manager
 from . import llm_utils
 from . import obsidian_structure_analyzer
 from . import obsidian_vault_manager
+from . import note_placement
