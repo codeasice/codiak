@@ -13,6 +13,7 @@ try:
     PLOTLY_AVAILABLE = True
 except ImportError:
     PLOTLY_AVAILABLE = False
+    go = None  # Will be None if plotly is not available
 
 # Import ynab only when needed to avoid import errors
 try:
@@ -203,7 +204,7 @@ def aggregate_daily_spend(transactions: List[Dict[str, Any]]) -> pd.DataFrame:
 
     return df
 
-def create_spend_graph(df: pd.DataFrame, selected_categories: List[str]) -> go.Figure:
+def create_spend_graph(df: pd.DataFrame, selected_categories: List[str]) -> "go.Figure":
     """Create a line graph of daily spend by category."""
     if df.empty or selected_categories is None:
         fig = go.Figure()
