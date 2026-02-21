@@ -1,25 +1,16 @@
-# Codiak
+Codiak is personal utility platform currently undergoing a migration from a **Streamlit** architecture to a modern **React + FastAPI** stack.
 
-> **Note:** Codiak is a work-in-progress (WIP) project that houses a growing suite of personal utilities for managing notes, automations, and integrations.
-
-Codiak is a Streamlit-based app that provides a unified interface for managing and updating your Obsidian vault notes, automating workflows, and integrating with external services like YNAB, Home Assistant, SmartThings, and AWS. It offers a collection of tools for:
-
-- Batch-renaming and retagging notes
-- Fixing and updating internal links
-- Converting and cleaning up Markdown and HTML
-- Integrating with home automation, finance, and cloud APIs
-- Network analysis and D&D character management
-- And more!
+The project currently supports running both versions side-by-side. Tools are being migrated incrementally from the Streamlit UI to React components backed by a FastAPI REST API.
 
 ## Features & Tools
 
 ### Note Taking & Markdown Utilities
-- **HTML to Markdown Converter**: Convert rich HTML content to Markdown for easy import into Obsidian.
-- **Items to Links**: Convert a list of items (one per line) into Obsidian-style links (`[[item]]`).
-- **Markdown Stripper**: Remove selected Markdown formatting (headings, lists, bold, etc.) from pasted text.
-- **Color Swatch Injector**: Augment Markdown color lists with color swatches next to each color name.
-- **Table Creator**: Create markdown tables from lists or join two tables (append or align columns).
-- **Table Converter**: Convert markdown tables to formats compatible with Microsoft Teams (HTML), Excel (CSV), and Confluence (HTML).
+- **HTML to Markdown Converter** [Migrated to React]: Convert rich HTML content to Markdown for easy import into Obsidian.
+- **Items to Links** [Migrated to React]: Convert a list of items (one per line) into Obsidian-style links (`[[item]]`).
+- **Markdown Stripper** [Migrated to React]: Remove selected Markdown formatting (headings, lists, bold, etc.) from pasted text.
+- **Color Swatch Injector** [Migrated to React]: Augment Markdown color lists with color swatches next to each color name.
+- **Table Creator** [Migrated to React]: Create markdown tables from lists or join two tables (append or align columns).
+- **Table Converter** [Migrated to React]: Convert markdown tables to formats compatible with Microsoft Teams (HTML), Excel (CSV), and Confluence (HTML).
 
 ### Obsidian Vault Management
 - **Emoji Tag Renamer**: Find notes with a given tag (including YAML frontmatter) that do **not** start with a specified emoji, and batch-rename them.
@@ -37,7 +28,7 @@ Codiak is a Streamlit-based app that provides a unified interface for managing a
 - **Home Assistant Dashboard**: Dashboard for Home Assistant entities grouped by type, with toggling for lights and switches.
 - **SmartThings Devices**: Connect to SmartThings and list all devices.
 - **SmartThings Dashboard**: Dashboard for SmartThings devices grouped by type.
-- **Home Automation Categorizer**: Categorizes a list of home automation items by their type based on line suffix.
+- **Home Automation Categorizer** [Migrated to React]: Categorizes a list of home automation items by their type based on line suffix.
 
 ### Finance (YNAB)
 - **Budgets**: View your YNAB budgets and categories from the database. See budget information, category structure, and financial details.
@@ -70,38 +61,54 @@ Codiak is a Streamlit-based app that provides a unified interface for managing a
 ### Developer & Integration Tools
 - **MCP Client**: An interactive client to send requests to MCP servers.
 
+## Architecture
+
+Codiak is transitioning from a monolithic Streamlit app to a decoupled React + FastAPI architecture:
+- **Backend**: FastAPI (Python) serving REST APIs. Business logic is extracted into the `api/services/` layer.
+- **Frontend**: React (TypeScript) built with Vite, using TanStack Query for state management.
+- **Legacy**: The original Streamlit app remains available and fully functional.
+
 ## Setup
 
-1. **Clone the repository:**
-   ```sh
-   git clone <your-repo-url>
-   cd <your-repo-directory>
-   ```
-2. **Install dependencies:**
-   ```sh
-   pip install -r requirements.txt
-   ```
-   This will install all required packages, including:
-   - `streamlit` (web app framework)
-   - `python-dotenv` (for .env support)
-   - `markdownify` (convert HTML to Markdown)
-   - `ynab` (YNAB API client)
-   - `boto3` (AWS SDK)
-   - `python-nmap` (network scanning)
-   - `pandas` (data manipulation)
-   - And many more dependencies (see requirements.txt for full list)
-3. **(Optional) Set your Obsidian vault path with a .env file:**
-   - Create a file named `.env` in the project root with the following content:
-     ```env
-     OB_VAULT_PATH=C:\Users\live\Documents\ObsidianVault
-     ```
-   - If not set, the app will default to `./vault`.
-4. **Run the app:**
-   ```sh
-   streamlit run app.py
-   # Or, to ensure using the right Python:
-   python -m streamlit run app.py
-   ```
+### Prerequisites
+- Python 3.9+
+- Node.js & npm (for the React frontend)
+
+### 1. Clone the repository:
+```sh
+git clone <your-repo-url>
+cd <your-repo-directory>
+```
+
+### 2. Install Python Dependencies:
+```sh
+pip install -r requirements.txt
+# Additionally install FastAPI requirements
+pip install fastapi uvicorn[standard] markdownify pdfkit
+```
+
+### 3. Install Frontend Dependencies:
+```sh
+cd web
+npm install
+cd ..
+```
+
+### 4. Running the Application
+
+#### Run React + FastAPI (New Version)
+Use the included batch file for a one-click startup:
+```sh
+.\run_react.bat
+```
+- **React Frontend**: [http://localhost:5173](http://localhost:5173)
+- **FastAPI Backend**: [http://localhost:8000](http://localhost:8000)
+
+#### Run Streamlit (Legacy Version)
+```sh
+streamlit run app.py
+```
+- **Streamlit UI**: [http://localhost:8501](http://localhost:8501)
 
 ## Usage
 - Use the sidebar to select a tool by category.

@@ -45,3 +45,4 @@ from . import llm_utils
 from . import obsidian_structure_analyzer
 from . import obsidian_vault_manager
 from . import note_placement
+from . import bmad_project_status

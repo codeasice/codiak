@@ -347,6 +347,14 @@ UI_TOOLS_METADATA = [
         "description": "Scan top X levels (optionally from a parent note) and get LLM-recommended folder(s) to place a new note.",
         "requires_vault_path": True
     },
+    {
+        "id": "BmadProjectStatus",
+        "short_title": "BMAD Project Status",
+        "long_title": "BMAD Project Status Analyzer",
+        "category": "Developer & Integration Tools",
+        "description": "Analyze a local BMAD project folder and extract key insights about project status, including summarizing bmm-workflow-status.yaml.",
+        "requires_vault_path": False
+    },
 ]
 
 def get_tools_metadata_fast():

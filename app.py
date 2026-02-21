@@ -112,6 +112,7 @@ RENDER_FUNC_MAP = {
     'ObsidianStructureAnalyzer': tools.obsidian_structure_analyzer.render,
     'ObsidianVaultManager': tools.obsidian_vault_manager.render,
     'ObsidianNotePlacement': tools.note_placement.render,
+    'BmadProjectStatus': tools.bmad_project_status.render,
 }
 
 def show_tool_directory():

@@ -1,0 +1,52 @@
+# Codiak: React + FastAPI Migration Walkthrough
+
+I have successfully scaffolded the new React + FastAPI architecture for Codiak and migrated the first 7 "Easy" tools. The existing Streamlit application remains fully functional and untouched.
+
+## New Architecture Overview
+
+The project now has a dual-platform structure:
+- **Streamlit (Original)**: Entry point at [app.py](file:///c:/Users/live/dev/codiak/app.py).
+- **FastAPI Backend (New)**: Logic at [api/](file:///c:/Users/live/dev/codiak/web/src/api.ts#4-18).
+- **React Frontend (New)**: UI at `web/`.
+
+### Directory Structure
+- [api/](file:///c:/Users/live/dev/codiak/web/src/api.ts#4-18) — FastAPI application
+  - [main.py](file:///c:/Users/live/dev/codiak/api/main.py) — App entry point
+  - `routers/` — REST endpoints (Tools metadata, Text transform tools)
+  - `services/` — Pure-Python business logic (extracted from Streamlit)
+- `web/` — Vite + React + TypeScript + Tailwind
+  - `src/tools/` — React implementations of migrated tools
+  - `src/components/` — Shared UI shell (Sidebar, Layout, App)
+- [run_react.bat](file:///c:/Users/live/dev/codiak/run_react.bat) — One-click launcher for the new version
+
+## Migrated Tools (Phase 1 & 2)
+
+The following 7 tools are now available in the React version:
+
+1. **HtmlToMarkdown**: Converts rich HTML to clean Markdown.
+2. **MarkdownStripper**: Removes selected formatting (H1, bold, etc.) from Markdown.
+3. **ColorSwatchInjector**: Adds visual color swatches to Markdown color lists.
+4. **TableCreator**: Creates Markdown tables from lists or joins existing tables.
+5. **MarkdownTableConverter**: Bidirectional conversion between Markdown and Teams/Excel/Confluence.
+6. **HomeAutomationCategorizer**: Group Home Assistant entity IDs by domain.
+7. **ItemsToLinks**: Batch convert lists to Obsidian-style `[[links]]`.
+
+## How to Run
+
+### Option 1: Run the new React + FastAPI version
+Double-click [run_react.bat](file:///c:/Users/live/dev/codiak/run_react.bat) in the project root. This will:
+1. Start the FastAPI backend on [http://localhost:8000](http://localhost:8000)
+2. Start the Vite React frontend on [http://localhost:5173](http://localhost:5173)
+
+### Option 2: Run the original Streamlit version
+Continue using your existing [run.bat](file:///c:/Users/live/dev/codiak/run.bat) or `streamlit run app.py`. It still works on [http://localhost:8501](http://localhost:8501).
+
+## Verification Results
+
+- [x] **Backend**: API endpoints tested and functional.
+- [x] **Frontend**: Build succeeds with zero TypeScript errors.
+- [x] **Integration**: React app correctly pulls tool metadata from the FastAPI backend.
+- [x] **Compatibility**: Streamlit remains untouched and functional.
+
+> [!TIP]
+> You can run both versions simultaneously to compare functionality during the transition.
