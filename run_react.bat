@@ -12,12 +12,12 @@ echo  React    -> http://localhost:5173
 echo  API Docs -> http://localhost:8000/docs
 echo.
 echo Starting FastAPI backend...
-start "Codiak - FastAPI" cmd /k ".\venv\Scripts\activate && uvicorn api.main:app --reload --port 8000"
+start "Codiak - FastAPI" cmd /k "call run_backend.bat"
 
 timeout /t 2 /nobreak > nul
 
 echo Starting React frontend...
-start "Codiak - React" cmd /k "cd web && npm run dev"
+start "Codiak - React" cmd /k "call run_frontend.bat"
 
 echo.
 echo Both servers starting in separate windows.

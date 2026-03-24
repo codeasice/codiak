@@ -355,6 +355,14 @@ UI_TOOLS_METADATA = [
         "description": "Analyze a local BMAD project folder and extract key insights about project status, including summarizing bmm-workflow-status.yaml.",
         "requires_vault_path": False
     },
+    {
+        "id": "DragonKeeper",
+        "short_title": "Dragon Keeper",
+        "long_title": "Dragon Keeper Financial Dashboard",
+        "category": "Finance",
+        "description": "Your personal financial command center. Import YNAB data, track spending, and chat with the Keeper agent.",
+        "requires_vault_path": False
+    },
 ]
 
 def get_tools_metadata_fast():

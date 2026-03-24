@@ -71,3 +71,12 @@ venv/
 
 ynab_*.json
 accounts.db
+data/*.db
+*.db
+dragon_keeper.db
+
+# Node
+node_modules/
+
+# Claude local settings
+.claude/settings.local.json

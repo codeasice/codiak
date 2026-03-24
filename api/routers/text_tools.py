@@ -19,6 +19,8 @@ from api.services.text_tools_service import (
     links_to_items,
     categorize_home_automation,
 )
+from api.services.obsidian_service import recommend_note_placement
+from api.services.bmad_service import analyze_bmad_project
 
 router = APIRouter()
 
@@ -173,3 +175,91 @@ class HomeAutomationRequest(BaseModel):
 @router.post("/home-automation-categorizer")
 def home_automation_categorizer_endpoint(req: HomeAutomationRequest):
     return categorize_home_automation(req.items_text)
+
+
+# ---------------------------------------------------------------------------
+# ObsidianNotePlacement
+# ---------------------------------------------------------------------------
+
+class ObsidianNotePlacementRequest(BaseModel):
+    vault_path: str
+    page_name: str
+    page_description: str = ""
+    depth: int = 3
+    parent_note_query: str = ""
+    model: str = "gpt-4o"
+    max_tokens: int = 500
+    temperature: float = 0.2
+
+
+@router.post("/obsidian-note-placement")
+def obsidian_note_placement_endpoint(req: ObsidianNotePlacementRequest):
+    result = recommend_note_placement(
+        vault_path=req.vault_path,
+        page_name=req.page_name,
+        page_description=req.page_description,
+        depth=req.depth,
+        parent_note_query=req.parent_note_query,
+        model=req.model,
+        max_tokens=req.max_tokens,
+        temperature=req.temperature,
+    )
+    if "error" in result and "tree_preview" not in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+# ---------------------------------------------------------------------------
+# BmadProjectStatus
+# ---------------------------------------------------------------------------
+
+class BmadProjectStatusRequest(BaseModel):
+    project_path: str
+
+
+class ListSubdirsRequest(BaseModel):
+    folder_path: str
+
+
+@router.post("/list-subdirs")
+def list_subdirs_endpoint(req: ListSubdirsRequest):
+    import os
+    path = req.folder_path
+    if not os.path.isdir(path):
+        raise HTTPException(status_code=400, detail=f"Not a valid directory: {path}")
+    try:
+        entries = sorted(
+            e for e in os.listdir(path)
+            if os.path.isdir(os.path.join(path, e)) and not e.startswith(".")
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return {"subdirs": entries}
+
+
+@router.post("/scan-bmad-projects")
+def scan_bmad_projects_endpoint(req: ListSubdirsRequest):
+    """Scan a folder and return only subdirectories that contain a BMAD project."""
+    import os
+    path = req.folder_path
+    if not os.path.isdir(path):
+        raise HTTPException(status_code=400, detail=f"Not a valid directory: {path}")
+    bmad_markers = (".bmad", "bmad", "_bmad")
+    projects = []
+    try:
+        for entry in sorted(os.listdir(path)):
+            full = os.path.join(path, entry)
+            if not os.path.isdir(full) or entry.startswith("."):
+                continue
+            for marker in bmad_markers:
+                if os.path.isdir(os.path.join(full, marker)):
+                    projects.append(entry)
+                    break
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return {"projects": projects}
+
+
+@router.post("/bmad-project-status")
+def bmad_project_status_endpoint(req: BmadProjectStatusRequest):
+    return analyze_bmad_project(req.project_path)

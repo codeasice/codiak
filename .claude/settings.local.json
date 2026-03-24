@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(dir /b \"C:\\\\Users\\\\live\\\\dev\\\\codiak\\\\*.py\")",
-      "Bash(ls:*)",
-      "Bash(cd:*)"
-    ]
-  }
-}

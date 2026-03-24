@@ -10,6 +10,9 @@ import TableCreator from '../tools/TableCreator'
 import MarkdownTableConverter from '../tools/MarkdownTableConverter'
 import ItemsToLinks from '../tools/ItemsToLinks'
 import HomeAutomationCategorizer from '../tools/HomeAutomationCategorizer'
+import ObsidianNotePlacement from '../tools/ObsidianNotePlacement'
+import BmadProjectStatus from '../tools/BmadProjectStatus'
+import DragonKeeper from '../tools/DragonKeeper'
 
 interface ToolMeta {
     id: string
@@ -27,6 +30,9 @@ const TOOL_COMPONENTS: Record<string, React.ComponentType> = {
     MarkdownTableConverter,
     ItemsToLinks,
     HomeAutomationCategorizer,
+    ObsidianNotePlacement,
+    BmadProjectStatus,
+    DragonKeeper,
 }
 
 export default function ToolPage() {

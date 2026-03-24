@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "codiak-ynab": {
+      "command": "C:\\Users\\live\\dev\\codiak\\venv\\Scripts\\python.exe",
+      "args": ["-m", "ynab_mcp.ynab_server"],
+      "cwd": "C:\\Users\\live\\dev\\codiak"
+    }
+  }
+}

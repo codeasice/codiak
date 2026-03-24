@@ -1,0 +1,38 @@
+# BMM Workflow Status
+# Tracks completion of planning workflows for the project
+
+project_name: codiak
+last_updated: 2026-03-15
+
+
+workflow_status:
+  product-brief:
+    status: complete
+    output_file: "_bmad-output/planning-artifacts/product-brief-codiak-2026-03-01.md"
+    completed_date: 2026-03-01
+    steps_completed: [1, 2, 3, 4, 5, 6]
+    notes: "Dragon Keeper financial management module. Brainstorming session preceded brief with 74 ideas."
+  prd:
+    status: complete
+    output_file: "_bmad-output/planning-artifacts/prd.md"
+    completed_date: 2026-03-14
+    steps_completed: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    notes: "Dragon Keeper PRD. 36 FRs, 14 NFRs, 4 user journeys, 5-phase roadmap. Phase A MVP scoped with P0/P1 priority split."
+  ux-design:
+    status: complete
+    output_file: "_bmad-output/planning-artifacts/ux-design-specification.md"
+    completed_date: 2026-03-15
+    steps_completed: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+    notes: "Dragon Keeper UX design. Desktop-first dashboard with Keeper AI agent. Shadcn/ui + Tailwind. 10 custom components specified. 6 user journey flows. Hybrid design direction with dense metrics + conversational Keeper drawer."
+  architecture:
+    status: complete
+    output_file: "_bmad-output/planning-artifacts/architecture.md"
+    completed_date: 2026-03-15
+    steps_completed: [1, 2, 3, 4, 5, 6, 7, 8]
+    notes: "Dragon Keeper architecture. Normalized SQLite (13 tables), full mirror YNAB cache, pre-composed widget APIs, Strands Agents SDK (API-only access), nested layout routes, TanStack Query for all state, persistent write-back queue and chat history."
+  epics-and-stories:
+    status: complete
+    output_file: "_bmad-output/planning-artifacts/epics.md"
+    completed_date: 2026-03-15
+    steps_completed: [1, 2, 3, 4]
+    notes: "Dragon Keeper epics. 5 epics, 20 stories, 36/36 FRs covered. Epics: See Where I Stand, Trust the Numbers, Daily Financial Habit, Teaching the Machine, Talking to the Keeper."

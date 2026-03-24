@@ -16,13 +16,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const navigate = useNavigate()
     const location = useLocation()
     const [openCategories, setOpenCategories] = useState<Set<string>>(new Set())
+    const [collapsed, setCollapsed] = useState(false)
 
     const { data: tools = [] } = useQuery<ToolMeta[]>({
         queryKey: ['tools'],
         queryFn: () => apiFetch('/tools'),
     })
 
-    // Group by category
     const categories: Record<string, ToolMeta[]> = {}
     for (const tool of tools) {
         if (!categories[tool.category]) categories[tool.category] = []
@@ -33,7 +33,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         ? location.pathname.split('/tool/')[1]
         : null
 
-    // Auto-open category of current tool
     const toggleCategory = (cat: string) => {
         setOpenCategories(prev => {
             const next = new Set(prev)
@@ -48,48 +47,72 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="app-shell">
-            <aside className="sidebar">
+            <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''}`}>
                 <div className="sidebar-header">
-                    <div>
-                        <div className="sidebar-logo">🛠 Codiak</div>
-                        <div className="sidebar-subtitle">Tool Platform</div>
-                    </div>
+                    {!collapsed && (
+                        <div style={{ flex: 1 }}>
+                            <div className="sidebar-logo">🛠 Codiak</div>
+                            <div className="sidebar-subtitle">Tool Platform</div>
+                        </div>
+                    )}
+                    <button
+                        className="sidebar-toggle"
+                        onClick={() => setCollapsed(c => !c)}
+                        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    >
+                        {collapsed ? '▶' : '◀'}
+                    </button>
                 </div>
 
-                <nav className="sidebar-nav">
-                    <button
-                        className={`sidebar-home-btn ${location.pathname === '/' ? 'active' : ''}`}
-                        onClick={() => navigate('/')}
-                    >
-                        🏠 Tool Directory
-                    </button>
+                {!collapsed && (
+                    <nav className="sidebar-nav">
+                        <button
+                            className={`sidebar-home-btn ${location.pathname === '/' ? 'active' : ''}`}
+                            onClick={() => navigate('/')}
+                        >
+                            🏠 Tool Directory
+                        </button>
 
-                    {Object.entries(categories)
-                        .sort(([a], [b]) => a.localeCompare(b))
-                        .map(([cat, catTools]) => (
-                            <div key={cat} className="category-group">
-                                <div
-                                    className={`category-header ${isCatOpen(cat) ? 'open' : ''}`}
-                                    onClick={() => toggleCategory(cat)}
-                                >
-                                    <span>{cat}</span>
-                                    <span className="chevron">▶</span>
+                        {Object.entries(categories)
+                            .sort(([a], [b]) => a.localeCompare(b))
+                            .map(([cat, catTools]) => (
+                                <div key={cat} className="category-group">
+                                    <div
+                                        className={`category-header ${isCatOpen(cat) ? 'open' : ''}`}
+                                        onClick={() => toggleCategory(cat)}
+                                    >
+                                        <span>{cat}</span>
+                                        <span className="chevron">▶</span>
+                                    </div>
+                                    <div className={`category-tools ${isCatOpen(cat) ? 'open' : ''}`}>
+                                        {catTools.map(tool => (
+                                            <button
+                                                key={tool.id}
+                                                className={`tool-btn ${currentToolId === tool.id ? 'active' : ''}`}
+                                                onClick={() => navigate(`/tool/${tool.id}`)}
+                                                title={tool.long_title}
+                                            >
+                                                {tool.short_title}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className={`category-tools ${isCatOpen(cat) ? 'open' : ''}`}>
-                                    {catTools.map(tool => (
-                                        <button
-                                            key={tool.id}
-                                            className={`tool-btn ${currentToolId === tool.id ? 'active' : ''}`}
-                                            onClick={() => navigate(`/tool/${tool.id}`)}
-                                            title={tool.long_title}
-                                        >
-                                            {tool.short_title}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                </nav>
+                            ))}
+                    </nav>
+                )}
+
+                {collapsed && (
+                    <nav className="sidebar-nav" style={{ alignItems: 'center' }}>
+                        <button
+                            className={`sidebar-home-btn ${location.pathname === '/' ? 'active' : ''}`}
+                            onClick={() => navigate('/')}
+                            title="Tool Directory"
+                            style={{ padding: '8px', margin: '4px auto', justifyContent: 'center' }}
+                        >
+                            🏠
+                        </button>
+                    </nav>
+                )}
             </aside>
 
             <main className="main-content">

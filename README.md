@@ -61,6 +61,46 @@ The project currently supports running both versions side-by-side. Tools are bei
 ### Developer & Integration Tools
 - **MCP Client**: An interactive client to send requests to MCP servers.
 
+## MCP Server (YNAB)
+
+Codiak includes an MCP server (`mcp/ynab_server.py`) that exposes YNAB and local account data to AI assistants (Claude, etc.) via the [Model Context Protocol](https://modelcontextprotocol.io).
+
+The server is **read-only** — it queries the local `accounts.db` SQLite database. Populate the database using the **YNAB Export Data** tool in the Streamlit app.
+
+### Install
+
+```sh
+pip install fastmcp
+```
+
+### Run
+
+```sh
+python -m ynab_mcp.ynab_server
+# Or point to a different database:
+CODIAK_DB_PATH=/path/to/accounts.db python -m ynab_mcp.ynab_server
+```
+
+### Available Tools
+
+| Tool | Description |
+|---|---|
+| `get_budgets` | List all YNAB budgets |
+| `get_category_groups` | List category groups |
+| `get_categories` | List categories with budgeted/activity/balance amounts |
+| `get_category` | Single category by ID |
+| `get_transactions` | Transactions with optional filters (budget, date, account, category, payee) |
+| `get_transaction` | Single transaction with subtransactions |
+| `get_payees` | Payees sorted by transaction count with summary stats |
+| `get_payee` | Single payee with category breakdown |
+| `get_payee_transactions` | Transactions for a specific payee |
+| `get_ynab_accounts` | YNAB accounts with balances |
+| `get_local_accounts` | Local account hierarchy with APR info |
+| `get_account_balances` | Latest balance snapshot per local account |
+| `get_account_balance_history` | Full balance history for a local account |
+
+All monetary amounts are returned in **dollars** (the DB stores YNAB amounts in milliunits and local amounts in cents — the server converts both).
+
 ## Architecture
 
 Codiak is transitioning from a monolithic Streamlit app to a decoupled React + FastAPI architecture:
@@ -85,6 +125,8 @@ cd <your-repo-directory>
 pip install -r requirements.txt
 # Additionally install FastAPI requirements
 pip install fastapi uvicorn[standard] markdownify pdfkit
+# For the YNAB MCP server
+pip install fastmcp
 ```
 
 ### 3. Install Frontend Dependencies:
