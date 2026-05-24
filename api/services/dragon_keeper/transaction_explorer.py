@@ -5,6 +5,7 @@ from api.models.dragon_keeper.db import get_db
 def search_transactions(
     payee: str | None = None,
     category_id: str | None = None,
+    account_id: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
     amount_min: float | None = None,
@@ -13,15 +14,23 @@ def search_transactions(
     sort_dir: str = "desc",
     page: int = 1,
     page_size: int = 50,
+    exact_payee: bool = False,
 ) -> dict:
     conn = get_db()
     try:
         where_parts = ["t.deleted = 0", "t.transfer_account_id IS NULL"]
         params: list = []
 
+        if account_id:
+            where_parts.append("t.account_id = ?")
+            params.append(account_id)
         if payee:
-            where_parts.append("t.payee_name LIKE ?")
-            params.append(f"%{payee}%")
+            if exact_payee:
+                where_parts.append("t.payee_name = ?")
+                params.append(payee)
+            else:
+                where_parts.append("t.payee_name LIKE ?")
+                params.append(f"%{payee}%")
         if category_id:
             where_parts.append("t.category_id = ?")
             params.append(category_id)
@@ -45,6 +54,7 @@ def search_transactions(
             "payee": "t.payee_name",
             "amount": "ABS(t.amount)",
             "category": "c.name",
+            "account": "a.name",
         }
         order_col = allowed_sorts.get(sort_by, "t.date")
         order_dir = "ASC" if sort_dir.lower() == "asc" else "DESC"

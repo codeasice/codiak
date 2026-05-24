@@ -37,9 +37,12 @@ def detect_recurring_transactions() -> dict:
 
         existing = _get_existing_recurring(conn)
         existing_payees = {r["payee_name"].lower() for r in existing}
+        cancelled_payees = _get_cancelled_payees(conn)
 
         detected = []
         for payee, txns in by_payee.items():
+            if payee.lower() in cancelled_payees:
+                continue
             result = _analyze_payee(payee, txns)
             if result:
                 detected.append(result)
@@ -188,6 +191,13 @@ def _next_annual(last_date: datetime) -> datetime:
 def _get_existing_recurring(conn) -> list[dict]:
     rows = conn.execute("SELECT * FROM recurring_items").fetchall()
     return [dict(r) for r in rows]
+
+
+def _get_cancelled_payees(conn) -> set[str]:
+    rows = conn.execute(
+        "SELECT LOWER(payee_name) as pn FROM recurring_items WHERE cancelled_date IS NOT NULL"
+    ).fetchall()
+    return {r["pn"] for r in rows}
 
 
 def _update_existing(conn, item: dict):

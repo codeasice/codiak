@@ -7,6 +7,7 @@ import {
   type TransactionRow,
 } from '../../hooks/dragon-keeper/use-transaction-explorer'
 import { useCategories, useRecategorize } from '../../hooks/dragon-keeper/use-categorization-queue'
+import { useAccountsPage } from '../../hooks/dragon-keeper/use-accounts-page'
 import { useToast } from './toast'
 
 function formatCurrency(amount: number): string {
@@ -207,9 +208,10 @@ interface FilterBarProps {
   filters: TransactionFilters
   onFilterChange: (updates: Partial<TransactionFilters>) => void
   categories: { id: string; name: string; group_name: string }[]
+  accounts: { id: string; name: string; type: string }[]
 }
 
-function FilterBar({ filters, onFilterChange, categories }: FilterBarProps) {
+function FilterBar({ filters, onFilterChange, categories, accounts }: FilterBarProps) {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const payeeInputRef = useRef<HTMLInputElement>(null)
 
@@ -229,21 +231,36 @@ function FilterBar({ filters, onFilterChange, categories }: FilterBarProps) {
       borderRadius: 'var(--radius-lg)', padding: '16px 20px',
     }}>
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: '1 1 260px' }}>
-          <input
-            ref={payeeInputRef}
-            type="text"
-            value={filters.payee ?? ''}
-            onChange={e => onFilterChange({ payee: e.target.value || undefined, page: 1 })}
-            placeholder="Search by payee name..."
-            style={{ ...inputStyle, width: '100%', paddingLeft: '32px' }}
-          />
-          <span style={{
-            position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)',
-            color: 'var(--text-muted)', fontSize: '14px', pointerEvents: 'none',
-          }}>
-            &#x1F50D;
-          </span>
+        <div style={{ position: 'relative', flex: '1 1 260px', display: 'flex', gap: '6px' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <input
+              ref={payeeInputRef}
+              type="text"
+              value={filters.payee ?? ''}
+              onChange={e => onFilterChange({ payee: e.target.value || undefined, page: 1 })}
+              placeholder="Search by payee name..."
+              style={{ ...inputStyle, width: '100%', paddingLeft: '32px', boxSizing: 'border-box' }}
+            />
+            <span style={{
+              position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)',
+              color: 'var(--text-muted)', fontSize: '14px', pointerEvents: 'none',
+            }}>
+              &#x1F50D;
+            </span>
+          </div>
+          <button
+            onClick={() => onFilterChange({ exact_payee: !filters.exact_payee, page: 1 })}
+            title={filters.exact_payee ? 'Switch to substring search' : 'Switch to exact match'}
+            style={{
+              padding: '8px 10px', fontSize: '11px', fontWeight: 700,
+              borderRadius: 'var(--radius)', cursor: 'pointer', whiteSpace: 'nowrap',
+              border: filters.exact_payee ? '1px solid var(--accent)' : '1px solid var(--border)',
+              background: filters.exact_payee ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'transparent',
+              color: filters.exact_payee ? 'var(--accent)' : 'var(--text-muted)',
+            }}
+          >
+            Exact
+          </button>
         </div>
 
         <select
@@ -254,6 +271,17 @@ function FilterBar({ filters, onFilterChange, categories }: FilterBarProps) {
           <option value="">All Categories</option>
           {categories.map(c => (
             <option key={c.id} value={c.id}>{c.group_name} / {c.name}</option>
+          ))}
+        </select>
+
+        <select
+          value={filters.account_id ?? ''}
+          onChange={e => onFilterChange({ account_id: e.target.value || undefined, page: 1 })}
+          style={{ ...inputStyle, flex: '0 1 180px', cursor: 'pointer' }}
+        >
+          <option value="">All Accounts</option>
+          {accounts.map(a => (
+            <option key={a.id} value={a.id}>{a.name}</option>
           ))}
         </select>
 
@@ -271,11 +299,11 @@ function FilterBar({ filters, onFilterChange, categories }: FilterBarProps) {
           Filters {showAdvanced ? '\u25B2' : '\u25BC'}
         </button>
 
-        {(filters.payee || filters.category_id || filters.date_from || filters.date_to || filters.amount_min != null || filters.amount_max != null) && (
+        {(filters.payee || filters.exact_payee || filters.category_id || filters.account_id || filters.date_from || filters.date_to || filters.amount_min != null || filters.amount_max != null) && (
           <button
             onClick={() => onFilterChange({
-              payee: undefined, category_id: undefined,
-              date_from: undefined, date_to: undefined,
+              payee: undefined, exact_payee: undefined, category_id: undefined,
+              account_id: undefined, date_from: undefined, date_to: undefined,
               amount_min: undefined, amount_max: undefined,
               page: 1,
             })}
@@ -387,7 +415,7 @@ function Pagination({ page, totalPages, onPageChange }: {
 
 /* ---- Transaction Table ---- */
 
-type SortKey = 'date' | 'payee' | 'amount' | 'category'
+type SortKey = 'date' | 'payee' | 'amount' | 'category' | 'account'
 
 interface TransactionTableProps {
   transactions: TransactionRow[]
@@ -401,11 +429,12 @@ interface TransactionTableProps {
   editingId: string | null
   onEditingChange: (id: string | null) => void
   onPayeeClick?: (payee: string) => void
+  onAmountClick?: (amount: number) => void
 }
 
 function TransactionTable({
   transactions, selectedIds, onToggleSelect, onToggleAll, allSelected,
-  sortBy, sortDir, onSort, editingId, onEditingChange, onPayeeClick,
+  sortBy, sortDir, onSort, editingId, onEditingChange, onPayeeClick, onAmountClick,
 }: TransactionTableProps) {
   const recategorize = useRecategorize()
   const { data: catData } = useCategories()
@@ -420,6 +449,7 @@ function TransactionTable({
   const columns: { label: string; key: SortKey | null; align: string; width?: string }[] = [
     { label: '', key: null, align: 'center', width: '40px' },
     { label: 'Date', key: 'date', align: 'left' },
+    { label: 'Account', key: 'account', align: 'left' },
     { label: 'Payee', key: 'payee', align: 'left' },
     { label: 'Category', key: 'category', align: 'left' },
     { label: 'Amount', key: 'amount', align: 'right' },
@@ -496,6 +526,9 @@ function TransactionTable({
               <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
                 {formatDate(t.date)}
               </td>
+              <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: '12px' }}>
+                {t.account_name || '—'}
+              </td>
               <td style={{ padding: '10px 12px', fontWeight: 500, color: 'var(--text-primary)' }}>
                 {onPayeeClick && t.payee_name ? (
                   <span
@@ -540,7 +573,17 @@ function TransactionTable({
                 fontVariantNumeric: 'tabular-nums',
                 color: t.amount < 0 ? 'var(--text-primary)' : 'var(--success)',
               }}>
-                {formatCurrency(t.amount)}
+                {onAmountClick ? (
+                  <span
+                    onClick={() => onAmountClick(Math.abs(t.amount))}
+                    title="Filter to this amount"
+                    style={{ cursor: 'pointer', borderBottom: '1px dashed currentColor' }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
+                    onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  >
+                    {formatCurrency(t.amount)}
+                  </span>
+                ) : formatCurrency(t.amount)}
               </td>
               <td style={{
                 padding: '10px 12px', color: 'var(--text-muted)', fontSize: '12px',
@@ -617,15 +660,17 @@ function BulkActionBar({ count, onRecategorize, onClear }: {
 interface TransactionExplorerProps {
   onBack: () => void
   initialPayee?: string
+  initialFilters?: Partial<TransactionFilters>
 }
 
-export default function TransactionExplorer({ onBack, initialPayee }: TransactionExplorerProps) {
+export default function TransactionExplorer({ onBack, initialPayee, initialFilters }: TransactionExplorerProps) {
   const [filters, setFilters] = useState<TransactionFilters>({
     payee: initialPayee,
     sort_by: 'date',
     sort_dir: 'desc',
     page: 1,
     page_size: 50,
+    ...initialFilters,
   })
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -634,10 +679,15 @@ export default function TransactionExplorer({ onBack, initialPayee }: Transactio
 
   const { data, isLoading } = useTransactionSearch(filters)
   const { data: catData } = useCategories()
+  const { data: accountsData } = useAccountsPage()
   const bulkRecategorize = useBulkRecategorize()
   const { toast } = useToast()
 
   const categories = catData?.categories ?? []
+  const accounts = useMemo(() =>
+    [...(accountsData?.accounts ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
+    [accountsData]
+  )
   const transactions = data?.transactions ?? []
 
   const updateFilters = useCallback((updates: Partial<TransactionFilters>) => {
@@ -655,11 +705,11 @@ export default function TransactionExplorer({ onBack, initialPayee }: Transactio
   }, [])
 
   const handlePayeeClick = useCallback((payee: string) => {
-    setFilters(prev => ({
-      ...prev,
-      payee,
-      page: 1,
-    }))
+    setFilters(prev => ({ ...prev, payee, exact_payee: true, page: 1 }))
+  }, [])
+
+  const handleAmountClick = useCallback((amount: number) => {
+    setFilters(prev => ({ ...prev, amount_min: amount, amount_max: amount, page: 1 }))
   }, [])
 
   const toggleSelect = useCallback((id: string) => {
@@ -726,7 +776,7 @@ export default function TransactionExplorer({ onBack, initialPayee }: Transactio
       </h2>
 
       {/* Filter bar */}
-      <FilterBar filters={filters} onFilterChange={updateFilters} categories={categories} />
+      <FilterBar filters={filters} onFilterChange={updateFilters} categories={categories} accounts={accounts} />
 
       {/* Payee summary */}
       {filters.payee && filters.payee.length >= 2 && (
@@ -797,6 +847,7 @@ export default function TransactionExplorer({ onBack, initialPayee }: Transactio
             editingId={editingId}
             onEditingChange={setEditingId}
             onPayeeClick={handlePayeeClick}
+            onAmountClick={handleAmountClick}
           />
         )}
       </div>

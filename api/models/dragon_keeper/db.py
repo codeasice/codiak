@@ -232,7 +232,11 @@ def get_pending_review_transactions(conn: sqlite3.Connection) -> list[dict]:
                t.category_id, t.category_name,
                t.suggested_category_id, t.suggestion_confidence, t.suggestion_source,
                t.categorization_status,
-               c.name as suggested_category_name
+               c.name as suggested_category_name,
+               (SELECT COUNT(*) FROM transactions t2
+                WHERE t2.payee_name = t.payee_name
+                AND t2.deleted = 0
+                AND t2.transfer_account_id IS NULL) as payee_total_count
         FROM transactions t
         LEFT JOIN categories c ON t.suggested_category_id = c.id
         WHERE t.categorization_status = 'pending_review'
@@ -724,11 +728,187 @@ def get_spending_summary(conn: sqlite3.Connection, payee_pattern: str | None = N
 
 def get_account_balances(conn: sqlite3.Connection) -> list[dict]:
     rows = conn.execute("""
-        SELECT name, type, balance, cleared_balance
+        SELECT id, name, type, balance, cleared_balance, uncleared_balance, on_budget, note
         FROM accounts
         WHERE closed = 0 AND deleted = 0
         ORDER BY type, name
     """).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_budget_info(conn: sqlite3.Connection) -> dict | None:
+    budget_id = get_setting(conn, "ynab_budget_id")
+    if not budget_id:
+        row = conn.execute(
+            "SELECT DISTINCT budget_id FROM accounts WHERE budget_id IS NOT NULL LIMIT 1"
+        ).fetchone()
+        budget_id = row["budget_id"] if row else None
+    if not budget_id:
+        return None
+    return {"id": budget_id}
+
+
+def get_category_groups(conn: sqlite3.Connection, include_hidden: bool = False) -> list[dict]:
+    query = "SELECT id, name, hidden, updated_at FROM category_groups WHERE deleted = 0"
+    if not include_hidden:
+        query += " AND hidden = 0"
+    query += " ORDER BY name"
+    rows = conn.execute(query).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_categories(conn: sqlite3.Connection, include_hidden: bool = False) -> list[dict]:
+    query = """
+        SELECT c.id, c.name, cg.name as category_group_name, c.hidden,
+               c.budgeted, c.activity, c.balance,
+               c.goal_type, c.goal_target, c.goal_target_month,
+               c.goal_percentage_complete, c.note
+        FROM categories c
+        JOIN category_groups cg ON c.category_group_id = cg.id
+        WHERE c.deleted = 0
+    """
+    if not include_hidden:
+        query += " AND c.hidden = 0 AND cg.hidden = 0"
+    query += " ORDER BY cg.name, c.name"
+    rows = conn.execute(query).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_category(conn: sqlite3.Connection, category_id: str) -> dict | None:
+    row = conn.execute("""
+        SELECT c.id, c.name, cg.name as category_group_name, c.hidden,
+               c.budgeted, c.activity, c.balance,
+               c.goal_type, c.goal_target, c.goal_target_month,
+               c.goal_percentage_complete, c.note
+        FROM categories c
+        JOIN category_groups cg ON c.category_group_id = cg.id
+        WHERE c.id = ? AND c.deleted = 0
+    """, (category_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_transactions(
+    conn: sqlite3.Connection,
+    limit: int = 50,
+    since_date: str | None = None,
+    account_id: str | None = None,
+    category_id: str | None = None,
+    payee_id: str | None = None,
+) -> list[dict]:
+    query = """
+        SELECT t.id, t.date, t.amount, t.memo, t.cleared, t.approved,
+               t.account_id, a.name as account_name,
+               t.payee_id, COALESCE(p.name, t.payee_name, 'Unknown') as payee_name,
+               t.category_id, COALESCE(c.name, t.category_name, 'Uncategorized') as category_name,
+               cg.name as category_group_name,
+               t.transfer_account_id
+        FROM transactions t
+        LEFT JOIN accounts a ON t.account_id = a.id
+        LEFT JOIN categories c ON t.category_id = c.id
+        LEFT JOIN category_groups cg ON c.category_group_id = cg.id
+        LEFT JOIN payees p ON t.payee_id = p.id
+        WHERE t.deleted = 0
+    """
+    params: list = []
+    if since_date:
+        query += " AND t.date >= ?"
+        params.append(since_date)
+    if account_id:
+        query += " AND t.account_id = ?"
+        params.append(account_id)
+    if category_id:
+        query += " AND t.category_id = ?"
+        params.append(category_id)
+    if payee_id:
+        query += " AND t.payee_id = ?"
+        params.append(payee_id)
+    query += " ORDER BY t.date DESC, t.id DESC LIMIT ?"
+    params.append(min(limit, 500))
+    rows = conn.execute(query, params).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_transaction(conn: sqlite3.Connection, transaction_id: str) -> dict | None:
+    row = conn.execute("""
+        SELECT t.id, t.date, t.amount, t.memo, t.cleared, t.approved,
+               t.account_id, a.name as account_name,
+               t.payee_id, COALESCE(p.name, t.payee_name, 'Unknown') as payee_name,
+               t.category_id, COALESCE(c.name, t.category_name, 'Uncategorized') as category_name,
+               cg.name as category_group_name,
+               t.transfer_account_id
+        FROM transactions t
+        LEFT JOIN accounts a ON t.account_id = a.id
+        LEFT JOIN categories c ON t.category_id = c.id
+        LEFT JOIN category_groups cg ON c.category_group_id = cg.id
+        LEFT JOIN payees p ON t.payee_id = p.id
+        WHERE t.id = ? AND t.deleted = 0
+    """, (transaction_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_payees_with_stats(conn: sqlite3.Connection, limit: int = 200) -> list[dict]:
+    rows = conn.execute("""
+        SELECT p.id, p.name,
+               COUNT(t.id) as transaction_count,
+               ROUND(SUM(t.amount), 2) as total_amount,
+               MIN(t.date) as first_transaction,
+               MAX(t.date) as last_transaction,
+               COUNT(DISTINCT t.category_id) as unique_categories
+        FROM payees p
+        LEFT JOIN transactions t ON p.id = t.payee_id AND t.deleted = 0
+        WHERE p.deleted = 0
+        GROUP BY p.id, p.name
+        ORDER BY transaction_count DESC, p.name ASC
+        LIMIT ?
+    """, (limit,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_payee_with_stats(conn: sqlite3.Connection, payee_id: str) -> dict | None:
+    row = conn.execute("""
+        SELECT p.id, p.name,
+               COUNT(t.id) as transaction_count,
+               ROUND(SUM(t.amount), 2) as total_amount,
+               ROUND(AVG(t.amount), 2) as avg_amount,
+               MIN(t.date) as first_transaction,
+               MAX(t.date) as last_transaction,
+               COUNT(DISTINCT t.category_id) as unique_categories,
+               COUNT(DISTINCT t.account_id) as unique_accounts
+        FROM payees p
+        LEFT JOIN transactions t ON p.id = t.payee_id AND t.deleted = 0
+        WHERE p.id = ? AND p.deleted = 0
+        GROUP BY p.id, p.name
+    """, (payee_id,)).fetchone()
+    if not row:
+        return None
+    payee = dict(row)
+    cats = conn.execute("""
+        SELECT COALESCE(c.name, t.category_name, 'Uncategorized') as category_name,
+               COALESCE(cg.name, 'Unknown') as category_group,
+               COUNT(*) as transaction_count,
+               ROUND(SUM(t.amount), 2) as total_amount
+        FROM transactions t
+        LEFT JOIN categories c ON t.category_id = c.id
+        LEFT JOIN category_groups cg ON c.category_group_id = cg.id
+        WHERE t.payee_id = ? AND t.deleted = 0
+        GROUP BY t.category_id, category_name, category_group
+        ORDER BY transaction_count DESC
+    """, (payee_id,)).fetchall()
+    payee["category_breakdown"] = [dict(c) for c in cats]
+    return payee
+
+
+def get_balance_snapshot_history(conn: sqlite3.Connection, account_id: str | None = None) -> list[dict]:
+    query = """
+        SELECT snapshot_date, account_id, account_name, account_type, balance
+        FROM balance_snapshots
+    """
+    params: list = []
+    if account_id:
+        query += " WHERE account_id = ?"
+        params.append(account_id)
+    query += " ORDER BY snapshot_date DESC, account_name"
+    rows = conn.execute(query, params).fetchall()
     return [dict(r) for r in rows]
 
 

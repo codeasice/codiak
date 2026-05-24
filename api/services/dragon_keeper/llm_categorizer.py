@@ -53,6 +53,19 @@ def _get_pending_for_llm(conn) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def _find_name_matches(payee: str, categories: list[dict]) -> list[dict]:
+    """Return categories whose name contains the payee name or vice versa (min 3 chars)."""
+    if not payee or len(payee) < 3:
+        return []
+    p = payee.lower()
+    matches = []
+    for c in categories:
+        n = c["name"].lower()
+        if p in n or n in p:
+            matches.append(c)
+    return matches
+
+
 def _build_prompt(categories: list[dict], transactions: list[dict]) -> tuple[str, str]:
     cat_list = "\n".join(f"{c['id']}  {c['group_name']} > {c['name']}" for c in categories)
 
@@ -62,6 +75,8 @@ CATEGORY LIST (one per line, format: UUID  Group > Name):
 {cat_list}
 
 For each transaction, pick the best category UUID from the list above.
+Some transactions include a "Name match" hint — a category whose name closely matches the payee name.
+Consider the hint, but use your judgment; the hint may be wrong.
 
 Respond with a JSON object: {{"suggestions": [...]}}
 Each item must have exactly these fields:
@@ -74,6 +89,10 @@ IMPORTANT: "category_id" must be ONLY the UUID, not the category name."""
     txn_lines = []
     for t in transactions:
         line = f"ID: {t['id']} | Payee: {t['payee_name'] or 'Unknown'} | Amount: ${abs(t['amount']):.2f} | Memo: {t.get('memo') or 'none'}"
+        matches = _find_name_matches(t.get("payee_name") or "", categories)
+        if matches:
+            hints = ", ".join(f'"{c["name"]}" ({c["id"]})' for c in matches[:3])
+            line += f" | Name match: {hints}"
         txn_lines.append(line)
 
     user = "Categorize these transactions:\n\n" + "\n".join(txn_lines)

@@ -15,13 +15,14 @@ def trigger_detection():
 
 @router.get("/recurring")
 def list_recurring():
-    """Get all recurring items."""
+    """Get all recurring items plus post-cancellation charge alerts."""
     conn = get_db()
     try:
         rows = conn.execute("""
             SELECT id, payee_name, type, cadence, expected_amount,
                    expected_day, next_expected_date, confirmed, include_in_sts,
-                   last_seen_date, avg_amount, occurrence_count, created_at, updated_at
+                   last_seen_date, avg_amount, occurrence_count, cancelled_date,
+                   created_at, updated_at
             FROM recurring_items
             ORDER BY type DESC, next_expected_date
         """).fetchall()
@@ -31,6 +32,8 @@ def list_recurring():
             item["confirmed"] = bool(item["confirmed"])
             item["include_in_sts"] = bool(item["include_in_sts"])
 
+        active = [i for i in items if not i["cancelled_date"]]
+
         def _to_monthly(item: dict) -> float:
             amt = item["expected_amount"]
             if item["cadence"] == "biweekly":
@@ -39,17 +42,39 @@ def list_recurring():
                 return amt / 12
             return amt
 
-        income_total = sum(_to_monthly(i) for i in items if i["type"] == "income")
-        expense_total = sum(_to_monthly(i) for i in items if i["type"] == "expense")
-        annual_expense_total = sum(i["expected_amount"] for i in items if i["type"] == "expense" and i["cadence"] == "annual")
+        income_total = sum(_to_monthly(i) for i in active if i["type"] == "income")
+        expense_total = sum(_to_monthly(i) for i in active if i["type"] == "expense")
+        annual_expense_total = sum(i["expected_amount"] for i in active if i["type"] == "expense" and i["cadence"] == "annual")
+
+        # Find transactions that occurred after each item's cancel date
+        cancelled_charges = []
+        for item in items:
+            if not item["cancelled_date"]:
+                continue
+            charge_rows = conn.execute("""
+                SELECT date, amount, id
+                FROM transactions
+                WHERE LOWER(payee_name) = LOWER(?)
+                  AND date > ?
+                  AND deleted = 0
+                ORDER BY date DESC
+            """, (item["payee_name"], item["cancelled_date"])).fetchall()
+            if charge_rows:
+                cancelled_charges.append({
+                    "recurring_id": item["id"],
+                    "payee_name": item["payee_name"],
+                    "cancelled_date": item["cancelled_date"],
+                    "charges": [{"date": r["date"], "amount": r["amount"], "id": r["id"]} for r in charge_rows],
+                })
 
         return {
             "items": items,
             "monthly_income": round(income_total, 2),
             "monthly_expenses": round(expense_total, 2),
             "annual_expenses": round(annual_expense_total, 2),
-            "total_count": len(items),
-            "unconfirmed_count": sum(1 for i in items if not i["confirmed"]),
+            "total_count": len(active),
+            "unconfirmed_count": sum(1 for i in active if not i["confirmed"]),
+            "cancelled_charges": cancelled_charges,
         }
     finally:
         conn.close()
@@ -87,6 +112,38 @@ def toggle_sts(item_id: int, req: ToggleStsRequest):
         )
         conn.commit()
         return {"status": "updated", "id": item_id, "include_in_sts": req.include_in_sts}
+    finally:
+        conn.close()
+
+
+class CancelRequest(BaseModel):
+    cancelled_date: str  # YYYY-MM-DD
+
+
+@router.patch("/recurring/{item_id}/cancel")
+def cancel_item(item_id: int, req: CancelRequest):
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE recurring_items SET cancelled_date = ?, include_in_sts = 0, updated_at = ? WHERE id = ?",
+            (req.cancelled_date, _now_utc(), item_id),
+        )
+        conn.commit()
+        return {"status": "cancelled", "id": item_id, "cancelled_date": req.cancelled_date}
+    finally:
+        conn.close()
+
+
+@router.patch("/recurring/{item_id}/uncancel")
+def uncancel_item(item_id: int):
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE recurring_items SET cancelled_date = NULL, include_in_sts = 1, updated_at = ? WHERE id = ?",
+            (_now_utc(), item_id),
+        )
+        conn.commit()
+        return {"status": "uncancelled", "id": item_id}
     finally:
         conn.close()
 

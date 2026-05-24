@@ -153,7 +153,7 @@ export default function KeeperChatDrawer({ open, onClose }: { open: boolean; onC
     if (!trimmed || sendMutation.isPending) return
 
     sendMutation.mutate(trimmed, {
-      onSuccess: () => setInput(''),
+      onSuccess: () => { setInput(''); textareaRef.current?.focus() },
       onError: (err) => toast(err.message || 'Failed to send message', 'error'),
     })
   }, [input, sendMutation, toast])

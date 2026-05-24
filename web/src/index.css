@@ -186,7 +186,7 @@ body {
   background: var(--bg-primary);
 }
 .main-content > * {
-  max-width: 960px;
+  max-width: 1400px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -260,7 +260,7 @@ body {
 .tool-card-launch:hover { background: var(--accent); color: white; }
 
 /* ===== Tool Page ===== */
-.tool-page { max-width: 900px; }
+.tool-page { max-width: 1400px; }
 
 .tool-page-header { margin-bottom: 24px; }
 .tool-page-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
@@ -336,6 +336,44 @@ select { cursor: pointer; }
   border: 1px solid var(--border);
 }
 .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+.btn-ghost.btn-warn { color: var(--warning, #f59e0b); }
+.btn-ghost.btn-warn:hover { color: var(--text-primary); }
+
+.btn-push {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  border: none;
+}
+.btn-push.btn-push--active {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+/* ===== DK Nav Bar ===== */
+.dk-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.dk-nav__status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.dk-nav__tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.dk-nav__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
 
 /* ===== Checkboxes ===== */
 .checkbox-group {

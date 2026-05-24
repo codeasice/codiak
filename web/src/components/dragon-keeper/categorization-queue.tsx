@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, Fragment } from 'react'
 import {
   useQueue, useQueueStats, useCategories, useApprove, useApproveAll, useSkip, useUnskipAll, useCategorize,
 } from '../../hooks/dragon-keeper/use-categorization-queue'
+import { useInvestigate } from '../../hooks/dragon-keeper/use-investigate'
 import { useToast } from './toast'
 
 function formatCurrency(amount: number): string {
@@ -10,7 +11,7 @@ function formatCurrency(amount: number): string {
 
 function formatDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00')
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function ConfidenceBadge({ confidence }: { confidence: number | null }) {
@@ -122,6 +123,9 @@ export default function CategorizationQueue({ onPayeeNavigate }: { onPayeeNaviga
   const categorize = useCategorize()
   const { toast } = useToast()
   const [correctingId, setCorrectingId] = useState<string | null>(null)
+  const [investigatingId, setInvestigatingId] = useState<string | null>(null)
+  const [investigateResults, setInvestigateResults] = useState<Record<string, string>>({})
+  const investigate = useInvestigate()
   const llmAvailable = stats?.llm_available ?? true
 
   const catNames = useMemo(() => {
@@ -384,7 +388,7 @@ export default function CategorizationQueue({ onPayeeNavigate }: { onPayeeNaviga
         </div>
       )}
 
-      <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '480px' }}>
+      <div style={{ overflowY: 'auto', maxHeight: '480px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg-card)' }}>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
@@ -421,8 +425,8 @@ export default function CategorizationQueue({ onPayeeNavigate }: { onPayeeNaviga
             {items.map(item => {
               const isCorrecting = correctingId === item.id
               return (
+                <Fragment key={item.id}>
                 <tr
-                  key={item.id}
                   style={{ borderBottom: '1px solid var(--border)' }}
                   onMouseEnter={e => {
                     for (const td of e.currentTarget.children as any)
@@ -437,7 +441,7 @@ export default function CategorizationQueue({ onPayeeNavigate }: { onPayeeNaviga
                     {formatDate(item.date)}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
-                    <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
+                    <div style={{ fontWeight: 500, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {onPayeeNavigate && item.payee_name ? (
                         <span
                           onClick={() => onPayeeNavigate(item.payee_name!)}
@@ -450,6 +454,19 @@ export default function CategorizationQueue({ onPayeeNavigate }: { onPayeeNaviga
                         </span>
                       ) : (
                         item.payee_name || 'Unknown'
+                      )}
+                      {item.payee_total_count != null && item.payee_total_count > 1 && (
+                        <span
+                          title={`${item.payee_total_count} total transactions for this payee will be affected by a rule`}
+                          style={{
+                            fontSize: '10px', fontWeight: 600, lineHeight: 1,
+                            padding: '2px 5px', borderRadius: '10px',
+                            background: 'var(--bg-hover)', color: 'var(--text-muted)',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {item.payee_total_count}×
+                        </span>
                       )}
                     </div>
                     {item.memo && (
@@ -545,9 +562,60 @@ export default function CategorizationQueue({ onPayeeNavigate }: { onPayeeNaviga
                       >
                         Skip
                       </button>
+                      <button
+                        onClick={() => {
+                          if (investigateResults[item.id]) {
+                            setInvestigatingId(investigatingId === item.id ? null : item.id)
+                            return
+                          }
+                          setInvestigatingId(item.id)
+                          investigate.mutate(
+                            { payee_name: item.payee_name!, amount: item.amount, memo: item.memo },
+                            {
+                              onSuccess: (data) => {
+                                setInvestigateResults(prev => ({
+                                  ...prev,
+                                  [item.id]: data.error || data.summary,
+                                }))
+                              },
+                              onError: () => {
+                                setInvestigateResults(prev => ({
+                                  ...prev,
+                                  [item.id]: 'Investigation failed. Try again.',
+                                }))
+                              },
+                            }
+                          )
+                        }}
+                        disabled={investigate.isPending && investigatingId === item.id}
+                        title="Research this merchant"
+                        style={{
+                          padding: '4px 10px', fontSize: '11px', fontWeight: 600,
+                          borderRadius: 'var(--radius)', border: '1px solid var(--border)',
+                          cursor: 'pointer', background: 'transparent',
+                          color: investigateResults[item.id] ? 'var(--accent)' : 'var(--text-muted)',
+                        }}
+                      >
+                        {investigate.isPending && investigatingId === item.id ? '...' : '🔍'}
+                      </button>
                     </div>
                   </td>
                 </tr>
+                {investigatingId === item.id && investigateResults[item.id] && (
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td colSpan={5} style={{ padding: '0 12px 12px 12px' }}>
+                      <div style={{
+                        padding: '10px 12px',
+                        background: 'color-mix(in srgb, var(--accent) 6%, transparent)',
+                        borderRadius: 'var(--radius)', border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)',
+                        fontSize: '12px', color: 'var(--text-primary)', lineHeight: 1.5,
+                      }}>
+                        {investigateResults[item.id]}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               )
             })}
           </tbody>

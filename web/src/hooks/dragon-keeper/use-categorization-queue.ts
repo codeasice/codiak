@@ -11,6 +11,7 @@ interface QueueItem {
   suggestion_confidence: number | null
   suggestion_source: string | null
   suggested_category_name: string | null
+  payee_total_count: number | null
 }
 
 interface QueueResponse {

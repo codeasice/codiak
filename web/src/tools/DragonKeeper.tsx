@@ -19,9 +19,13 @@ import TransactionExplorer from '../components/dragon-keeper/transaction-explore
 import RecurringItems from '../components/dragon-keeper/recurring-items'
 import DkSettingsPage from '../components/dragon-keeper/dk-settings-page'
 import PaycheckTracer from '../components/dragon-keeper/paycheck-tracer'
+import BalanceChart from '../components/dragon-keeper/balance-chart'
+import SpendingFlow from '../components/dragon-keeper/spending-flow'
+import AccountsPage from '../components/dragon-keeper/accounts-page'
 import KeeperChatDrawer from '../components/dragon-keeper/keeper-chat-drawer'
 import { ToastProvider } from '../components/dragon-keeper/toast'
 import { useRecurring } from '../hooks/dragon-keeper/use-recurring'
+import { Settings } from 'lucide-react'
 
 export default function DragonKeeper() {
   return (
@@ -43,15 +47,24 @@ function DragonKeeperInner() {
   const unconfirmedCount = recurringData?.unconfirmed_count ?? 0
   const { toast } = useToast()
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
-  const [view, setView] = useState<'dashboard' | 'rules' | 'transactions' | 'recurring' | 'settings' | 'paycheck'>('dashboard')
+  const [view, setView] = useState<'dashboard' | 'rules' | 'transactions' | 'recurring' | 'settings' | 'paycheck' | 'balances' | 'flow' | 'accounts'>('dashboard')
   const [chatOpen, setChatOpen] = useState(false)
   const [txnPayeeFilter, setTxnPayeeFilter] = useState<string | undefined>(undefined)
+  const [txnInitialFilters, setTxnInitialFilters] = useState<Record<string, any> | undefined>(undefined)
   const syncStartRef = useRef<number>(0)
   const [syncElapsed, setSyncElapsed] = useState<string | null>(null)
   const pushStartRef = useRef<number>(0)
 
   const navigateToPayee = useCallback((payee: string) => {
     setTxnPayeeFilter(payee)
+    setTxnInitialFilters(undefined)
+    setSelectedCategoryId(null)
+    setView('transactions')
+  }, [])
+
+  const navigateToCategoryPeriod = useCallback((categoryId: string, dateFrom: string, dateTo: string) => {
+    setTxnPayeeFilter(undefined)
+    setTxnInitialFilters({ category_id: categoryId, date_from: dateFrom, date_to: dateTo })
     setSelectedCategoryId(null)
     setView('transactions')
   }, [])
@@ -107,8 +120,9 @@ function DragonKeeperInner() {
     return (
       <div className="dk-dashboard">
         <TransactionExplorer
-          onBack={() => { setView('dashboard'); setTxnPayeeFilter(undefined) }}
+          onBack={() => { setView('dashboard'); setTxnPayeeFilter(undefined); setTxnInitialFilters(undefined) }}
           initialPayee={txnPayeeFilter}
+          initialFilters={txnInitialFilters}
         />
         {!chatOpen && chatButton}
         <KeeperChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
@@ -152,6 +166,39 @@ function DragonKeeperInner() {
     )
   }
 
+  if (view === 'balances') {
+    return (
+      <div className="dk-dashboard">
+        <BalanceChart onBack={() => setView('dashboard')} />
+        {!chatOpen && chatButton}
+        <KeeperChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
+      </div>
+    )
+  }
+
+  if (view === 'flow') {
+    return (
+      <div className="dk-dashboard">
+        <SpendingFlow
+          onBack={() => setView('dashboard')}
+          onPayeeNavigate={navigateToPayee}
+        />
+        {!chatOpen && chatButton}
+        <KeeperChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
+      </div>
+    )
+  }
+
+  if (view === 'accounts') {
+    return (
+      <div className="dk-dashboard">
+        <AccountsPage onBack={() => setView('dashboard')} />
+        {!chatOpen && chatButton}
+        <KeeperChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
+      </div>
+    )
+  }
+
   if (selectedCategoryId) {
     return (
       <div className="dk-dashboard">
@@ -168,74 +215,37 @@ function DragonKeeperInner() {
 
   return (
     <div className="dk-dashboard">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <nav className="dk-nav">
+        <div className="dk-nav__status">
           <DragonStateIndicator />
           <QueueBadge />
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => setView('transactions')}
-            style={{
-              padding: '7px 14px', fontSize: '12px', fontWeight: 600,
-              borderRadius: 'var(--radius)', border: '1px solid var(--border)',
-              cursor: 'pointer', background: 'transparent', color: 'var(--text-muted)',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
-          >
-            Transactions
+
+        <div className="dk-nav__tabs">
+          <button className="btn btn-ghost" onClick={() => setView('transactions')}>Transactions</button>
+          <button className={`btn btn-ghost${unconfirmedCount > 0 ? ' btn-warn' : ''}`} onClick={() => setView('recurring')}>
+            Subscriptions{recurringCount > 0 ? ` (${recurringCount})` : ''}{unconfirmedCount > 0 ? ' \u2022' : ''}
           </button>
-          <button
-            onClick={() => setView('recurring')}
-            style={{
-              padding: '7px 14px', fontSize: '12px', fontWeight: 600,
-              borderRadius: 'var(--radius)', border: '1px solid var(--border)',
-              cursor: 'pointer', background: 'transparent',
-              color: unconfirmedCount > 0 ? 'var(--warning, #f59e0b)' : 'var(--text-muted)',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = unconfirmedCount > 0 ? 'var(--warning, #f59e0b)' : 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
-          >
-            Subscriptions{recurringCount > 0 ? ` (${recurringCount})` : ''}{unconfirmedCount > 0 ? ` \u2022` : ''}
-          </button>
-          <button
-            onClick={() => setView('paycheck')}
-            style={{
-              padding: '7px 14px', fontSize: '12px', fontWeight: 600,
-              borderRadius: 'var(--radius)', border: '1px solid var(--border)',
-              cursor: 'pointer', background: 'transparent', color: 'var(--text-muted)',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
-          >
-            Paycheck
-          </button>
-          <button
-            onClick={() => setView('rules')}
-            style={{
-              padding: '7px 14px', fontSize: '12px', fontWeight: 600,
-              borderRadius: 'var(--radius)', border: '1px solid var(--border)',
-              cursor: 'pointer', background: 'transparent', color: 'var(--text-muted)',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
-          >
+          <button className="btn btn-ghost" onClick={() => setView('paycheck')}>Paycheck</button>
+          <button className="btn btn-ghost" onClick={() => setView('accounts')}>Accounts</button>
+          <button className="btn btn-ghost" onClick={() => setView('balances')}>Balances</button>
+          <button className="btn btn-ghost" onClick={() => setView('flow')}>Flow</button>
+          <button className="btn btn-ghost" onClick={() => setView('rules')}>
             Rules{rulesCount > 0 ? ` (${rulesCount})` : ''}
           </button>
+        </div>
+
+        <div className="dk-nav__actions">
           <button
+            className="btn btn-ghost"
             onClick={() => setView('settings')}
-            style={{
-              padding: '7px 14px', fontSize: '12px', fontWeight: 600,
-              borderRadius: 'var(--radius)', border: '1px solid var(--border)',
-              cursor: 'pointer', background: 'transparent', color: 'var(--text-muted)',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
+            title="Settings"
+            style={{ padding: '8px' }}
           >
-            Settings
+            <Settings size={16} />
           </button>
           <button
+            className={`btn btn-push${hasPending ? ' btn-push--active' : ''}`}
             onClick={() => {
               pushStartRef.current = Date.now()
               processWriteBack.mutate(undefined, {
@@ -254,19 +264,9 @@ function DragonKeeperInner() {
             }}
             disabled={!hasPending || processWriteBack.isPending}
             title={hasPending ? `Push ${pendingWriteBack} categorization(s) to YNAB` : 'Nothing to push'}
-            style={{
-              padding: '7px 14px', fontSize: '12px', fontWeight: 600,
-              borderRadius: 'var(--radius)', border: 'none', cursor: hasPending ? 'pointer' : 'default',
-              background: hasPending
-                ? 'color-mix(in srgb, var(--accent) 15%, transparent)'
-                : 'var(--bg-hover)',
-              color: hasPending ? 'var(--accent)' : 'var(--text-muted)',
-              opacity: processWriteBack.isPending ? 0.6 : 1,
-            }}
+            style={{ opacity: processWriteBack.isPending ? 0.6 : 1 }}
           >
-            {processWriteBack.isPending
-              ? 'Pushing...'
-              : `Push to YNAB${hasPending ? ` (${pendingWriteBack})` : ''}`}
+            {processWriteBack.isPending ? 'Pushing...' : `Push${hasPending ? ` (${pendingWriteBack})` : ''}`}
           </button>
           <button
             className="btn btn-primary"
@@ -288,10 +288,10 @@ function DragonKeeperInner() {
             }}
             disabled={sync.isPending}
           >
-            {sync.isPending ? 'Importing...' : 'Import YNAB Data'}
+            {sync.isPending ? 'Importing...' : 'Sync'}
           </button>
         </div>
-      </div>
+      </nav>
 
       <KeeperGreetingStrip />
 
@@ -329,7 +329,10 @@ function DragonKeeperInner() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
         <SafeToSpendHero />
         <FinancialSummaryCards />
-        <SpendingTrends onCategoryClick={(id) => setSelectedCategoryId(id)} />
+        <SpendingTrends
+          onCategoryClick={(id) => setSelectedCategoryId(id)}
+          onBarClick={navigateToCategoryPeriod}
+        />
         <CategorizationQueue onPayeeNavigate={navigateToPayee} />
         <ActivitySquares />
         <SyncHealthCollapsible />

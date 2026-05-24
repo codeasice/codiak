@@ -13,7 +13,7 @@ from api.models.dragon_keeper.db import (
 
 logger = logging.getLogger("dragon_keeper.learning")
 
-LEARNING_THRESHOLD = 2
+LEARNING_THRESHOLD = 1
 
 
 def check_and_create_rule(payee_name: str, category_id: str) -> dict | None:

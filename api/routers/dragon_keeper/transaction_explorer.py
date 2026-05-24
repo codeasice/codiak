@@ -12,8 +12,10 @@ router = APIRouter()
 
 @router.get("/transactions")
 def list_transactions(
-    payee: str | None = Query(None, description="Payee name substring filter"),
+    payee: str | None = Query(None, description="Payee name filter"),
+    exact_payee: bool = Query(False, description="Exact payee name match instead of substring"),
     category_id: str | None = Query(None, description="Category ID filter"),
+    account_id: str | None = Query(None, description="Account ID filter"),
     date_from: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
     date_to: str | None = Query(None, description="End date (YYYY-MM-DD)"),
     amount_min: float | None = Query(None, description="Minimum absolute amount"),
@@ -26,6 +28,7 @@ def list_transactions(
     return search_transactions(
         payee=payee,
         category_id=category_id,
+        account_id=account_id,
         date_from=date_from,
         date_to=date_to,
         amount_min=amount_min,
@@ -34,6 +37,7 @@ def list_transactions(
         sort_dir=sort_dir,
         page=page,
         page_size=page_size,
+        exact_payee=exact_payee,
     )
 
 

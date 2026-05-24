@@ -24,7 +24,9 @@ export interface TransactionSearchResult {
 
 export interface TransactionFilters {
   payee?: string
+  exact_payee?: boolean
   category_id?: string
+  account_id?: string
   date_from?: string
   date_to?: string
   amount_min?: number
@@ -56,7 +58,9 @@ export interface PayeeSummary {
 function buildQueryString(filters: TransactionFilters): string {
   const params = new URLSearchParams()
   if (filters.payee) params.set('payee', filters.payee)
+  if (filters.exact_payee) params.set('exact_payee', 'true')
   if (filters.category_id) params.set('category_id', filters.category_id)
+  if (filters.account_id) params.set('account_id', filters.account_id)
   if (filters.date_from) params.set('date_from', filters.date_from)
   if (filters.date_to) params.set('date_to', filters.date_to)
   if (filters.amount_min != null) params.set('amount_min', String(filters.amount_min))

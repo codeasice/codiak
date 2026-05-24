@@ -100,6 +100,8 @@ def approve_all():
                 approve_categorization(conn, item["id"], cid)
                 enqueue_write_back(conn, item["id"], cid)
                 approved += 1
+                if item.get("payee_name"):
+                    check_and_create_rule(item["payee_name"], cid)
         conn.commit()
         return {"approved_count": approved}
     finally:

@@ -17,6 +17,9 @@ from api.routers.dragon_keeper.transaction_explorer import router as txn_explore
 from api.routers.dragon_keeper.recurring import router as recurring_router
 from api.routers.dragon_keeper.dk_settings import router as dk_settings_router
 from api.routers.dragon_keeper.paycheck_tracer import router as paycheck_tracer_router
+from api.routers.dragon_keeper.charts import router as charts_router
+from api.routers.dragon_keeper.investigate import router as investigate_router
+from api.routers.dragon_keeper.accounts_page import router as accounts_page_router
 
 router = APIRouter()
 
@@ -38,6 +41,9 @@ router.include_router(txn_explorer_router)
 router.include_router(recurring_router)
 router.include_router(dk_settings_router)
 router.include_router(paycheck_tracer_router)
+router.include_router(charts_router)
+router.include_router(investigate_router)
+router.include_router(accounts_page_router)
 
 
 @router.get("/health")

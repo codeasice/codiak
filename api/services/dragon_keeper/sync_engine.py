@@ -213,6 +213,12 @@ def run_sync(budget_id: str | None = None) -> dict:
         except Exception as e:
             logger.warning("Post-sync categorization failed: %s", e)
 
+        try:
+            _take_balance_snapshot(conn)
+            conn.commit()
+        except Exception as e:
+            logger.warning("Balance snapshot failed: %s", e)
+
         is_delta = server_knowledge is not None
         return {
             "status": "success",
@@ -247,3 +253,44 @@ def run_sync(budget_id: str | None = None) -> dict:
         raise SyncError("SYNC_FAILED", f"Unexpected sync error: {e}")
     finally:
         conn.close()
+
+
+def _take_balance_snapshot(conn):
+    """Record current account balances for trend tracking."""
+    from api.models.dragon_keeper.db import _now_utc
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    existing = conn.execute(
+        "SELECT COUNT(*) as cnt FROM balance_snapshots WHERE snapshot_date = ?", (today,)
+    ).fetchone()["cnt"]
+    if existing > 0:
+        conn.execute("DELETE FROM balance_snapshots WHERE snapshot_date = ?", (today,))
+        conn.execute("DELETE FROM balance_daily_totals WHERE snapshot_date = ?", (today,))
+
+    accounts = conn.execute("""
+        SELECT id, name, type, balance FROM accounts
+        WHERE closed = 0 AND deleted = 0
+    """).fetchall()
+
+    now = _now_utc()
+    checking = savings = credit = 0.0
+
+    for a in accounts:
+        conn.execute("""
+            INSERT INTO balance_snapshots (snapshot_date, account_id, account_name, account_type, balance, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (today, a["id"], a["name"], a["type"], a["balance"], now))
+
+        if a["type"] in ("checking",):
+            checking += a["balance"]
+        elif a["type"] in ("savings",):
+            savings += a["balance"]
+        elif a["type"] in ("creditCard",):
+            credit += a["balance"]
+
+    net_worth = checking + savings + credit
+
+    conn.execute("""
+        INSERT INTO balance_daily_totals (snapshot_date, checking_total, credit_total, savings_total, net_worth, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (today, round(checking, 2), round(credit, 2), round(savings, 2), round(net_worth, 2), now))

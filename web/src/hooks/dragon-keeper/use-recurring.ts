@@ -14,8 +14,22 @@ export interface RecurringItem {
   last_seen_date: string | null
   avg_amount: number | null
   occurrence_count: number
+  cancelled_date: string | null
   created_at: string
   updated_at: string
+}
+
+export interface CancelledCharge {
+  date: string
+  amount: number
+  id: string
+}
+
+export interface CancelledChargeAlert {
+  recurring_id: number
+  payee_name: string
+  cancelled_date: string
+  charges: CancelledCharge[]
 }
 
 export interface RecurringResponse {
@@ -25,6 +39,7 @@ export interface RecurringResponse {
   annual_expenses: number
   total_count: number
   unconfirmed_count: number
+  cancelled_charges: CancelledChargeAlert[]
 }
 
 export interface DetectionResult {
@@ -77,6 +92,33 @@ export function useToggleSts() {
         method: 'PATCH',
         body: JSON.stringify({ include_in_sts: data.include_in_sts }),
       }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: KEY })
+      qc.invalidateQueries({ queryKey: ['dragon-keeper', 'safe-to-spend'] })
+    },
+  })
+}
+
+export function useCancelRecurring() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { id: number; cancelled_date: string }) =>
+      apiFetch(`/dragon-keeper/recurring/${data.id}/cancel`, {
+        method: 'PATCH',
+        body: JSON.stringify({ cancelled_date: data.cancelled_date }),
+      }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: KEY })
+      qc.invalidateQueries({ queryKey: ['dragon-keeper', 'safe-to-spend'] })
+    },
+  })
+}
+
+export function useUncancelRecurring() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) =>
+      apiFetch(`/dragon-keeper/recurring/${id}/uncancel`, { method: 'PATCH' }),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: KEY })
       qc.invalidateQueries({ queryKey: ['dragon-keeper', 'safe-to-spend'] })

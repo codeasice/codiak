@@ -38,10 +38,19 @@ def get_spending_trends() -> list[dict]:
         })
         entry["grand_total"] += r["total"]
 
+    # Build the master period grid from all observed periods so every category
+    # gets the same slots in the same order (missing weeks become 0).
+    all_periods = sorted({r["period_start"] for r in rows})
+    period_set = set(all_periods)
+
     results = list(by_cat.values())
     for item in results:
         item["grand_total"] = round(item["grand_total"], 2)
-        item["periods"].sort(key=lambda p: p["period_start"])
+        existing = {p["period_start"]: p["total"] for p in item["periods"]}
+        item["periods"] = [
+            {"period_start": ps, "total": round(existing.get(ps, 0.0), 2)}
+            for ps in all_periods
+        ]
 
         periods = item["periods"]
         if len(periods) >= 2:

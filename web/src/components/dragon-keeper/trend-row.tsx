@@ -40,9 +40,10 @@ function RowSkeleton() {
 
 interface SparklineProps {
   periods: PeriodValue[]
+  onBarClick?: (dateFrom: string, dateTo: string) => void
 }
 
-function Sparkline({ periods }: SparklineProps) {
+function Sparkline({ periods, onBarClick }: SparklineProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
   const max = Math.max(...periods.map(p => p.total), 1)
   const barWidth = 10
@@ -52,22 +53,35 @@ function Sparkline({ periods }: SparklineProps) {
   return (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', gap: `${gap}px`, height: `${maxHeight}px` }}>
       {periods.map((p, i) => {
-        const h = Math.max(2, (p.total / max) * maxHeight)
+        const isEmpty = p.total === 0
+        const h = isEmpty ? 0 : Math.max(2, (p.total / max) * maxHeight)
         const isLast = i === periods.length - 1
+        const clickable = !isEmpty && !!onBarClick
+
+        // week end = period_start + 6 days
+        const dateTo = (() => {
+          const d = new Date(p.period_start + 'T00:00:00')
+          d.setDate(d.getDate() + 6)
+          return d.toISOString().split('T')[0]
+        })()
+
         return (
           <div
             key={p.period_start}
             onMouseEnter={() => setHoveredIdx(i)}
             onMouseLeave={() => setHoveredIdx(null)}
+            onClick={clickable ? (e) => { e.stopPropagation(); onBarClick!(p.period_start, dateTo) } : undefined}
             style={{
               width: `${barWidth}px`,
-              height: `${h}px`,
-              background: isLast ? 'var(--accent)' : 'var(--text-muted)',
-              opacity: isLast ? 1 : 0.45,
+              height: isEmpty ? `${maxHeight}px` : `${h}px`,
+              background: isEmpty
+                ? 'transparent'
+                : isLast ? 'var(--accent)' : 'var(--text-muted)',
+              opacity: isEmpty ? 0 : isLast ? 1 : 0.45,
               borderRadius: '2px',
-              cursor: 'default',
+              cursor: clickable ? 'pointer' : 'default',
               transition: 'opacity 0.15s',
-              ...(hoveredIdx === i ? { opacity: 1 } : {}),
+              ...(hoveredIdx === i && !isEmpty ? { opacity: 1 } : {}),
             }}
           />
         )
@@ -89,7 +103,9 @@ function Sparkline({ periods }: SparklineProps) {
           pointerEvents: 'none',
           boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
         }}>
-          {formatPeriodDate(periods[hoveredIdx].period_start)}: {formatCurrency(periods[hoveredIdx].total)}
+          {formatPeriodDate(periods[hoveredIdx].period_start)}: {
+            periods[hoveredIdx].total === 0 ? 'No spending' : formatCurrency(periods[hoveredIdx].total)
+          }
         </div>
       )}
     </div>
@@ -117,7 +133,11 @@ function DeltaBadge({ delta }: { delta: number }) {
 
 /* ---- Trend Row ---- */
 
-function TrendRow({ item, onClick }: { item: SpendingTrendItem; onClick?: () => void }) {
+function TrendRow({ item, onClick, onBarClick }: {
+  item: SpendingTrendItem
+  onClick?: () => void
+  onBarClick?: (categoryId: string, dateFrom: string, dateTo: string) => void
+}) {
   const [hovered, setHovered] = useState(false)
 
   return (
@@ -144,7 +164,10 @@ function TrendRow({ item, onClick }: { item: SpendingTrendItem; onClick?: () => 
       </div>
 
       <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-        <Sparkline periods={item.periods} />
+        <Sparkline
+          periods={item.periods}
+          onBarClick={onBarClick ? (from, to) => onBarClick(item.category_id, from, to) : undefined}
+        />
       </div>
 
       <DeltaBadge delta={item.delta_pct} />
@@ -165,9 +188,10 @@ function TrendRow({ item, onClick }: { item: SpendingTrendItem; onClick?: () => 
 
 interface SpendingTrendsProps {
   onCategoryClick?: (categoryId: string) => void
+  onBarClick?: (categoryId: string, dateFrom: string, dateTo: string) => void
 }
 
-export default function SpendingTrends({ onCategoryClick }: SpendingTrendsProps) {
+export default function SpendingTrends({ onCategoryClick, onBarClick }: SpendingTrendsProps) {
   const { data, isLoading, isError } = useSpendingTrends()
 
   return (
@@ -221,6 +245,7 @@ export default function SpendingTrends({ onCategoryClick }: SpendingTrendsProps)
               key={item.category_id}
               item={item}
               onClick={() => onCategoryClick?.(item.category_id)}
+              onBarClick={onBarClick}
             />
           ))}
         </div>

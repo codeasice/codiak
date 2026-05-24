@@ -34,8 +34,11 @@ export function useSendMessage() {
         method: 'POST',
         body: JSON.stringify({ message }),
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['dragon-keeper', 'chat-history'] })
+      if (data.tool_calls_made) {
+        qc.invalidateQueries({ queryKey: ['dragon-keeper'] })
+      }
     },
   })
 }

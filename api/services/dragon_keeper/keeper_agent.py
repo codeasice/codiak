@@ -1,8 +1,8 @@
 """Keeper Agent — conversational financial assistant powered by OpenAI function calling."""
+import asyncio
 import json
 import logging
 import os
-import re
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
@@ -12,17 +12,8 @@ from api.models.dragon_keeper.db import (
     get_chat_history,
     save_chat_message,
     clear_chat_history,
-    get_spending_summary,
-    get_account_balances,
-    get_recent_spending_by_category,
-    get_queue_stats,
-    get_pending_review_transactions,
-    approve_categorization,
-    enqueue_write_back,
 )
-from api.services.dragon_keeper.safe_to_spend import calculate_safe_to_spend
-from api.services.dragon_keeper.learning import check_and_create_rule
-from api.models.dragon_keeper.db import get_current_streak
+from api.services.dragon_keeper import keeper_tools as kt
 
 load_dotenv()
 
@@ -42,7 +33,9 @@ _SYSTEM_PROMPT_BASE = (
     "When the user asks about a spending category using everyday language, map it to "
     "the closest matching category name from the list below. For example 'eating out' "
     "maps to 'Dining', 'groceries' maps to 'Groceries', etc. Always use the exact "
-    "category name from this list when calling tools.\n\n"
+    "category name from this list when calling tools. "
+    "IMPORTANT: Never state that a category exists or doesn't exist based on memory. "
+    "Always call search_categories first when the user asks about a specific category.\n\n"
 )
 
 
@@ -177,196 +170,81 @@ TOOLS = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_categories",
+            "description": "Search for categories by name. ALWAYS use this when the user asks whether a specific category exists — never answer category existence questions from memory.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The category name or partial name to search for"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "sync",
+            "description": "Pull fresh transaction and account data from YNAB, then push any approved categorizations back. Use when the user asks to sync, refresh, or update data from YNAB.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "flush_queue": {
+                        "type": "boolean",
+                        "description": "Also push approved categorizations back to YNAB (default true).",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
 ]
 
 
-_EMOJI_RE = re.compile(
-    r"[\U00002600-\U000027BF\U0001F300-\U0001FAFF\U0000FE00-\U0000FE0F\U0000200D]+",
-)
-
-
-def _strip_emoji(text: str) -> str:
-    return _EMOJI_RE.sub("", text).strip()
-
-
-def _find_category(conn, name: str) -> dict | None:
-    """Fuzzy category lookup: tries exact LIKE, then emoji-stripped comparison."""
-    row = conn.execute(
-        "SELECT id, name FROM categories WHERE name LIKE ? AND deleted = 0",
-        (f"%{name}%",),
-    ).fetchone()
-    if row:
-        return dict(row)
-
-    stripped = _strip_emoji(name)
-    if stripped != name:
-        row = conn.execute(
-            "SELECT id, name FROM categories WHERE name LIKE ? AND deleted = 0",
-            (f"%{stripped}%",),
-        ).fetchone()
-        if row:
-            return dict(row)
-
-    all_cats = conn.execute(
-        "SELECT id, name FROM categories WHERE deleted = 0"
-    ).fetchall()
-    name_lower = stripped.lower()
-    for cat in all_cats:
-        if name_lower in _strip_emoji(cat["name"]).lower():
-            return dict(cat)
-    return None
-
-
-def _execute_tool(name: str, args: dict) -> str:
-    """Execute a tool call and return the JSON result string."""
+def _run_tool(name: str, args: dict) -> str:
+    """Synchronous tool dispatch — called in a thread pool to avoid blocking the event loop."""
     try:
         if name == "query_spending":
-            conn = get_db()
-            try:
-                days_val = args.get("days", 30)
-                result = get_spending_summary(
-                    conn,
-                    payee_pattern=args.get("payee"),
-                    category_name=args.get("category"),
-                    days=days_val if days_val else None,
-                )
-            finally:
-                conn.close()
-            return json.dumps(result, default=str)
-
-        if name == "get_balances":
-            conn = get_db()
-            try:
-                balances = get_account_balances(conn)
-            finally:
-                conn.close()
-            sts = calculate_safe_to_spend()
-            return json.dumps({"accounts": balances, "safe_to_spend": sts}, default=str)
-
-        if name == "get_spending_breakdown":
-            conn = get_db()
-            try:
-                cats = get_recent_spending_by_category(conn, days=args.get("days", 30))
-            finally:
-                conn.close()
-            return json.dumps({"categories": cats, "days": args.get("days", 30)}, default=str)
-
-        if name == "get_pending_categorizations":
-            conn = get_db()
-            try:
-                items = get_pending_review_transactions(conn)
-            finally:
-                conn.close()
-            return json.dumps({"pending": items, "count": len(items)}, default=str)
-
-        if name == "approve_transactions":
-            conn = get_db()
-            try:
-                pending = get_pending_review_transactions(conn)
-                pending_map = {item["id"]: item for item in pending}
-                approved = 0
-                for tid in args["transaction_ids"]:
-                    item = pending_map.get(tid)
-                    if item and item.get("suggested_category_id"):
-                        cid = item["suggested_category_id"]
-                        approve_categorization(conn, tid, cid)
-                        enqueue_write_back(conn, tid, cid)
-                        approved += 1
-                        if item.get("payee_name"):
-                            check_and_create_rule(item["payee_name"], cid)
-                conn.commit()
-            finally:
-                conn.close()
-            return json.dumps({"approved_count": approved, "requested": len(args["transaction_ids"])})
-
-        if name == "correct_transaction":
-            conn = get_db()
-            try:
-                cat = _find_category(conn, args["category_name"])
-                if not cat:
-                    return json.dumps({"error": f"Category '{args['category_name']}' not found"})
-                cid = cat["id"]
-                cat_name = cat["name"]
-                tid = args["transaction_id"]
-                approve_categorization(conn, tid, cid)
-                enqueue_write_back(conn, tid, cid)
-                conn.commit()
-                txn = conn.execute("SELECT payee_name FROM transactions WHERE id = ?", (tid,)).fetchone()
-                if txn and txn["payee_name"]:
-                    check_and_create_rule(txn["payee_name"], cid)
-            finally:
-                conn.close()
-            return json.dumps({"status": "corrected", "transaction_id": tid, "category": cat_name})
-
-        if name == "recategorize_by_payee":
-            conn = get_db()
-            try:
-                cat = _find_category(conn, args["new_category"])
-                if not cat:
-                    return json.dumps({"error": f"Category '{args['new_category']}' not found"})
-                new_cid = cat["id"]
-                new_cat_name = cat["name"]
-
-                where = "t.payee_name LIKE ? AND t.deleted = 0 AND t.transfer_account_id IS NULL"
-                params: list = [f"%{args['payee']}%"]
-
-                if args.get("current_category"):
-                    cur_cat = _find_category(conn, args["current_category"])
-                    if cur_cat:
-                        where += " AND t.category_id = ?"
-                        params.append(cur_cat["id"])
-                    else:
-                        where += " AND c.name LIKE ?"
-                        params.append(f"%{args['current_category']}%")
-
-                rows = conn.execute(f"""
-                    SELECT t.id, t.payee_name
-                    FROM transactions t
-                    LEFT JOIN categories c ON t.category_id = c.id
-                    WHERE {where}
-                """, params).fetchall()
-
-                updated = 0
-                for r in rows:
-                    conn.execute("""
-                        UPDATE transactions
-                        SET category_id = ?, categorization_status = 'approved',
-                            suggested_category_id = ?, suggestion_confidence = 1.0,
-                            suggestion_source = 'manual', updated_at = datetime('now')
-                        WHERE id = ?
-                    """, (new_cid, new_cid, r["id"]))
-                    enqueue_write_back(conn, r["id"], new_cid)
-                    updated += 1
-                conn.commit()
-            finally:
-                conn.close()
-            return json.dumps({
-                "updated": updated,
-                "payee_filter": args["payee"],
-                "new_category": new_cat_name,
-            })
-
-        if name == "generate_debrief":
-            sts = calculate_safe_to_spend()
-            conn = get_db()
-            try:
-                breakdown = get_recent_spending_by_category(conn, days=7)
-                streak = get_current_streak(conn)
-                queue = get_queue_stats(conn)
-            finally:
-                conn.close()
-            return json.dumps({
-                "safe_to_spend": sts,
-                "week_spending": breakdown[:10],
-                "streak": streak,
-                "queue": queue,
-            }, default=str)
-
-        return json.dumps({"error": f"Unknown tool: {name}"})
-
+            days = args.get("days", 30)
+            result = kt.tool_query_spending(args.get("payee"), args.get("category"), days or 30)
+        elif name == "get_balances":
+            result = kt.tool_get_balances()
+        elif name == "get_spending_breakdown":
+            result = kt.tool_get_spending_breakdown(args.get("days", 30))
+        elif name == "get_pending_categorizations":
+            result = kt.tool_get_pending_categorizations()
+        elif name == "approve_transactions":
+            result = kt.tool_approve_transactions(args["transaction_ids"])
+        elif name == "correct_transaction":
+            result = kt.tool_correct_transaction(args["transaction_id"], args["category_name"])
+        elif name == "recategorize_by_payee":
+            result = kt.tool_recategorize_by_payee(
+                args["payee"], args["new_category"], args.get("current_category")
+            )
+        elif name == "search_categories":
+            result = kt.tool_search_categories(args["query"])
+        elif name == "generate_debrief":
+            result = kt.tool_generate_debrief()
+        elif name == "sync":
+            result = kt.tool_sync(args.get("flush_queue", True))
+        else:
+            result = {"error": f"Unknown tool: {name}"}
+        return json.dumps(result, default=str)
     except Exception as e:
         logger.exception("Tool execution error for %s", name)
         return json.dumps({"error": str(e)})
+
+
+async def _execute_tool(name: str, args: dict) -> str:
+    """Run a tool in a thread pool so blocking I/O doesn't freeze the event loop."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _run_tool, name, args)
+
+
+HISTORY_WINDOW = 20  # max prior messages to include (keeps token count bounded)
 
 
 def _build_openai_messages(history: list[dict], user_message: str) -> list[dict]:
@@ -376,9 +254,9 @@ def _build_openai_messages(history: list[dict], user_message: str) -> list[dict]
     details are not replayed since the final assistant text captures the result.
     """
     messages = [{"role": "system", "content": _build_system_prompt()}]
-    for msg in history:
-        if msg["role"] in ("user", "assistant"):
-            messages.append({"role": msg["role"], "content": msg["content"] or ""})
+    recent = [m for m in history if m["role"] in ("user", "assistant")][-HISTORY_WINDOW:]
+    for msg in recent:
+        messages.append({"role": msg["role"], "content": msg["content"] or ""})
     messages.append({"role": "user", "content": user_message})
     return messages
 
@@ -409,7 +287,7 @@ async def chat(user_message: str) -> dict:
 
     for _ in range(MAX_TOOL_ITERATIONS):
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=messages,
             tools=TOOLS,
             tool_choice="auto",
@@ -434,7 +312,7 @@ async def chat(user_message: str) -> dict:
                 fn_name = tc.function.name
                 fn_args = json.loads(tc.function.arguments) if tc.function.arguments else {}
                 tool_calls_made.append(fn_name)
-                result = _execute_tool(fn_name, fn_args)
+                result = await _execute_tool(fn_name, fn_args)
                 messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
 
             continue

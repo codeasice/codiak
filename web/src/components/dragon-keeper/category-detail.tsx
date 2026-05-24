@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { useCategoryDetail, type CategoryTransaction } from '../../hooks/dragon-keeper/use-category-detail'
 import { useCategories, useRecategorize } from '../../hooks/dragon-keeper/use-categorization-queue'
 import { useToast } from './toast'
+import CategoryChart from './category-chart'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
@@ -487,9 +488,12 @@ export default function CategoryDetail({ categoryId, onBack, onPayeeNavigate }: 
           </div>
         </div>
 
-        {/* Spending chart */}
+        {/* Spending chart (weekly bars) */}
         <SpendingChart periods={data.spending_over_time} />
       </div>
+
+      {/* Monthly trend chart (Recharts) */}
+      <CategoryChart categoryId={categoryId} />
 
       {/* Transaction table */}
       <div style={{
