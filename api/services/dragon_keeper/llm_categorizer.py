@@ -10,6 +10,7 @@ from api.models.dragon_keeper.db import (
     set_llm_suggestion,
     _now_utc,
     get_manual_review_payees,
+    enqueue_write_back,
 )
 
 load_dotenv()
@@ -246,6 +247,7 @@ def run_llm_categorizer(max_transactions: int | None = None) -> dict:
                             suggestion_source = 'llm', updated_at = ?
                         WHERE id = ?
                     """, (cid, cid, conf, _now_utc(), tid))
+                    enqueue_write_back(conn, tid, cid)
                     total_auto += 1
                 else:
                     set_llm_suggestion(conn, tid, cid, conf)

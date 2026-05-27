@@ -252,11 +252,10 @@ function SankeyDiagram({ nodes, links, onPayeeNavigate }: {
 /* ---- Main Component ---- */
 
 interface SpendingFlowProps {
-  onBack: () => void
   onPayeeNavigate?: (payee: string) => void
 }
 
-export default function SpendingFlow({ onBack, onPayeeNavigate }: SpendingFlowProps) {
+export default function SpendingFlow({ onPayeeNavigate }: SpendingFlowProps) {
   const [month, setMonth] = useState<string | undefined>(undefined)
   const [minAmount, setMinAmount] = useState(10)
   const [maxPayees, setMaxPayees] = useState(30)
@@ -266,19 +265,6 @@ export default function SpendingFlow({ onBack, onPayeeNavigate }: SpendingFlowPr
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      <button
-        onClick={onBack}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: '6px',
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--accent)', fontSize: '13px', fontWeight: 500,
-          padding: 0, alignSelf: 'flex-start',
-        }}
-      >
-        <span style={{ fontSize: '16px', lineHeight: 1 }}>&larr;</span>
-        Dashboard
-      </button>
-
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
           Spending Flow

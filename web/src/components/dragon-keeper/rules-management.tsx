@@ -369,7 +369,7 @@ function SourceBadge({ source }: { source: string }) {
 type SortKey = 'payee' | 'match_type' | 'category' | 'confidence' | 'source' | 'times_applied'
 type SortDir = 'asc' | 'desc'
 
-export default function RulesManagement({ onBack }: { onBack: () => void }) {
+export default function RulesManagement() {
   const { data, isLoading } = useRules()
   const createRule = useCreateRule()
   const updateRule = useUpdateRule()
@@ -502,17 +502,6 @@ export default function RulesManagement({ onBack }: { onBack: () => void }) {
         padding: '16px 20px', borderBottom: '1px solid var(--border)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button
-            type="button"
-            onClick={onBack}
-            style={{
-              padding: '4px 10px', fontSize: '11px', fontWeight: 600,
-              borderRadius: 'var(--radius)', border: '1px solid var(--border)',
-              cursor: 'pointer', background: 'transparent', color: 'var(--text-muted)',
-            }}
-          >
-            &larr; Dashboard
-          </button>
           <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
             Categorization Rules
             <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)' }}>

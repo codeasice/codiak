@@ -15,6 +15,7 @@ def list_transactions(
     payee: str | None = Query(None, description="Payee name filter"),
     exact_payee: bool = Query(False, description="Exact payee name match instead of substring"),
     category_id: str | None = Query(None, description="Category ID filter"),
+    category_group: str | None = Query(None, description="Category group name filter"),
     account_id: str | None = Query(None, description="Account ID filter"),
     date_from: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
     date_to: str | None = Query(None, description="End date (YYYY-MM-DD)"),
@@ -28,6 +29,7 @@ def list_transactions(
     return search_transactions(
         payee=payee,
         category_id=category_id,
+        category_group=category_group,
         account_id=account_id,
         date_from=date_from,
         date_to=date_to,

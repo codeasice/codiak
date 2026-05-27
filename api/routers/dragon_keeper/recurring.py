@@ -9,20 +9,18 @@ router = APIRouter()
 
 @router.post("/recurring/detect")
 def trigger_detection():
-    """Scan transaction history and detect recurring patterns."""
     return detect_recurring_transactions()
 
 
 @router.get("/recurring")
 def list_recurring():
-    """Get all recurring items plus post-cancellation charge alerts."""
     conn = get_db()
     try:
         rows = conn.execute("""
             SELECT id, payee_name, type, cadence, expected_amount,
                    expected_day, next_expected_date, confirmed, include_in_sts,
                    last_seen_date, avg_amount, occurrence_count, cancelled_date,
-                   created_at, updated_at
+                   is_subscription, status, created_at, updated_at
             FROM recurring_items
             ORDER BY type DESC, next_expected_date
         """).fetchall()
@@ -31,8 +29,10 @@ def list_recurring():
         for item in items:
             item["confirmed"] = bool(item["confirmed"])
             item["include_in_sts"] = bool(item["include_in_sts"])
+            item["is_subscription"] = bool(item["is_subscription"])
 
-        active = [i for i in items if not i["cancelled_date"]]
+        active = [i for i in items if i["status"] == "active"]
+        confirmed = [i for i in active if i["confirmed"]]
 
         def _to_monthly(item: dict) -> float:
             amt = item["expected_amount"]
@@ -42,14 +42,14 @@ def list_recurring():
                 return amt / 12
             return amt
 
-        income_total = sum(_to_monthly(i) for i in active if i["type"] == "income")
-        expense_total = sum(_to_monthly(i) for i in active if i["type"] == "expense")
-        annual_expense_total = sum(i["expected_amount"] for i in active if i["type"] == "expense" and i["cadence"] == "annual")
+        income_total = sum(_to_monthly(i) for i in confirmed if i["type"] == "income")
+        expense_total = sum(_to_monthly(i) for i in confirmed if i["type"] == "expense")
+        annual_expense_total = sum(i["expected_amount"] for i in confirmed if i["type"] == "expense" and i["cadence"] == "annual")
 
-        # Find transactions that occurred after each item's cancel date
+        # Only alert on post-cancellation charges for true subscriptions
         cancelled_charges = []
         for item in items:
-            if not item["cancelled_date"]:
+            if not item["is_subscription"] or item["status"] != "cancelled" or not item["cancelled_date"]:
                 continue
             charge_rows = conn.execute("""
                 SELECT date, amount, id
@@ -116,8 +116,26 @@ def toggle_sts(item_id: int, req: ToggleStsRequest):
         conn.close()
 
 
+class ToggleSubscriptionRequest(BaseModel):
+    is_subscription: bool
+
+
+@router.patch("/recurring/{item_id}/subscription")
+def toggle_subscription(item_id: int, req: ToggleSubscriptionRequest):
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE recurring_items SET is_subscription = ?, updated_at = ? WHERE id = ?",
+            (1 if req.is_subscription else 0, _now_utc(), item_id),
+        )
+        conn.commit()
+        return {"status": "updated", "id": item_id, "is_subscription": req.is_subscription}
+    finally:
+        conn.close()
+
+
 class CancelRequest(BaseModel):
-    cancelled_date: str  # YYYY-MM-DD
+    cancelled_date: str
 
 
 @router.patch("/recurring/{item_id}/cancel")
@@ -125,11 +143,25 @@ def cancel_item(item_id: int, req: CancelRequest):
     conn = get_db()
     try:
         conn.execute(
-            "UPDATE recurring_items SET cancelled_date = ?, include_in_sts = 0, updated_at = ? WHERE id = ?",
+            "UPDATE recurring_items SET cancelled_date = ?, status = 'cancelled', include_in_sts = 0, updated_at = ? WHERE id = ?",
             (req.cancelled_date, _now_utc(), item_id),
         )
         conn.commit()
         return {"status": "cancelled", "id": item_id, "cancelled_date": req.cancelled_date}
+    finally:
+        conn.close()
+
+
+@router.patch("/recurring/{item_id}/archive")
+def archive_item(item_id: int):
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE recurring_items SET status = 'archived', include_in_sts = 0, updated_at = ? WHERE id = ?",
+            (_now_utc(), item_id),
+        )
+        conn.commit()
+        return {"status": "archived", "id": item_id}
     finally:
         conn.close()
 
@@ -139,11 +171,11 @@ def uncancel_item(item_id: int):
     conn = get_db()
     try:
         conn.execute(
-            "UPDATE recurring_items SET cancelled_date = NULL, include_in_sts = 1, updated_at = ? WHERE id = ?",
+            "UPDATE recurring_items SET cancelled_date = NULL, status = 'active', include_in_sts = 1, updated_at = ? WHERE id = ?",
             (_now_utc(), item_id),
         )
         conn.commit()
-        return {"status": "uncancelled", "id": item_id}
+        return {"status": "active", "id": item_id}
     finally:
         conn.close()
 
@@ -162,7 +194,7 @@ def dismiss_item(item_id: int):
 class UpdateRecurringRequest(BaseModel):
     expected_amount: float | None = None
     expected_day: int | None = None
-    cadence: str | None = None  # biweekly, monthly, annual
+    cadence: str | None = None
     type: str | None = None
 
 

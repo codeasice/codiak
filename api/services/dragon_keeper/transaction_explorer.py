@@ -5,6 +5,7 @@ from api.models.dragon_keeper.db import get_db
 def search_transactions(
     payee: str | None = None,
     category_id: str | None = None,
+    category_group: str | None = None,
     account_id: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
@@ -31,9 +32,20 @@ def search_transactions(
             else:
                 where_parts.append("t.payee_name LIKE ?")
                 params.append(f"%{payee}%")
+        if category_group:
+            where_parts.append(
+                "t.category_id IN ("
+                "SELECT c.id FROM categories c "
+                "JOIN category_groups cg ON c.category_group_id = cg.id "
+                "WHERE cg.name = ?)"
+            )
+            params.append(category_group)
         if category_id:
-            where_parts.append("t.category_id = ?")
-            params.append(category_id)
+            if category_id == '__uncategorized__':
+                where_parts.append("t.category_id IS NULL")
+            else:
+                where_parts.append("t.category_id = ?")
+                params.append(category_id)
         if date_from:
             where_parts.append("t.date >= ?")
             params.append(date_from)

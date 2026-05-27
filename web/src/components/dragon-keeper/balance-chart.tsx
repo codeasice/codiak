@@ -19,11 +19,7 @@ const CHART_COLORS = {
   net: '#6366f1',
 }
 
-interface BalanceChartProps {
-  onBack?: () => void
-}
-
-export default function BalanceChart({ onBack }: BalanceChartProps) {
+export default function BalanceChart() {
   const [days, setDays] = useState(90)
   const { data, isLoading } = useBalanceHistory(days)
   const [series, setSeries] = useState<'net' | 'stacked'>('net')
@@ -32,21 +28,6 @@ export default function BalanceChart({ onBack }: BalanceChartProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      {onBack && (
-        <button
-          onClick={onBack}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--accent)', fontSize: '13px', fontWeight: 500,
-            padding: 0, alignSelf: 'flex-start',
-          }}
-        >
-          <span style={{ fontSize: '16px', lineHeight: 1 }}>&larr;</span>
-          Dashboard
-        </button>
-      )}
-
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
           Balance Over Time

@@ -9,6 +9,7 @@ SETTINGS_KEYS = {
     "projection_days": {"default": "30", "type": "int"},
     "buffer_amount": {"default": "100", "type": "float"},
     "ynab_budget_id": {"default": "", "type": "str"},
+    "paycheck_account_id": {"default": "", "type": "str"},
 }
 
 
@@ -35,6 +36,7 @@ def get_settings():
 class UpdateSettingsRequest(BaseModel):
     projection_days: int | None = None
     buffer_amount: float | None = None
+    paycheck_account_id: str | None = None
 
 
 @router.patch("/settings")
@@ -48,6 +50,9 @@ def update_settings(req: UpdateSettingsRequest):
         if req.buffer_amount is not None:
             set_setting(conn, "buffer_amount", str(max(0, req.buffer_amount)))
             updated.append("buffer_amount")
+        if req.paycheck_account_id is not None:
+            set_setting(conn, "paycheck_account_id", req.paycheck_account_id)
+            updated.append("paycheck_account_id")
         conn.commit()
         return {"status": "updated", "updated_keys": updated}
     finally:

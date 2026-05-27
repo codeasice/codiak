@@ -480,7 +480,19 @@ export default function CategorizationQueue({ onPayeeNavigate }: { onPayeeNaviga
                     fontVariantNumeric: 'tabular-nums',
                     color: item.amount < 0 ? 'var(--text-primary)' : 'var(--success)',
                   }}>
-                    {formatCurrency(item.amount)}
+                    {onPayeeNavigate && item.payee_name ? (
+                      <span
+                        onClick={() => onPayeeNavigate(item.payee_name!)}
+                        style={{ cursor: 'pointer', borderBottom: '1px dashed currentColor' }}
+                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)' }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '' }}
+                        title={`View all transactions for ${item.payee_name}`}
+                      >
+                        {formatCurrency(item.amount)}
+                      </span>
+                    ) : (
+                      formatCurrency(item.amount)
+                    )}
                   </td>
                   <td style={{ padding: '10px 12px', position: 'relative' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

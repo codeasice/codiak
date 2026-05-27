@@ -21,8 +21,10 @@ interface ToolMeta {
     category: string
 }
 
+type ToolComponent = React.ComponentType & { HeaderExtra?: React.ComponentType }
+
 // Map tool IDs to their React components
-const TOOL_COMPONENTS: Record<string, React.ComponentType> = {
+const TOOL_COMPONENTS: Record<string, ToolComponent> = {
     HtmlToMarkdown,
     MarkdownStripper,
     ColorSwatchInjector,
@@ -44,7 +46,8 @@ export default function ToolPage() {
     })
 
     const tool = tools.find(t => t.id === toolId)
-    const ToolComponent = toolId ? TOOL_COMPONENTS[toolId] : undefined
+    const ToolComponent: ToolComponent | undefined = toolId ? TOOL_COMPONENTS[toolId] : undefined
+    const HeaderExtra = ToolComponent?.HeaderExtra
 
     if (!tool && tools.length > 0) {
         return <div className="error-box">Tool "{toolId}" not found.</div>
@@ -56,7 +59,10 @@ export default function ToolPage() {
                 {tool && (
                     <>
                         <div className="category-badge">{tool.category}</div>
-                        <h1 className="tool-page-title" style={{ marginTop: 8 }}>{tool.long_title}</h1>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: 8 }}>
+                            <h1 className="tool-page-title">{tool.long_title}</h1>
+                            {HeaderExtra && <HeaderExtra />}
+                        </div>
                         <p className="tool-page-desc">{tool.description}</p>
                     </>
                 )}

@@ -16,6 +16,7 @@ export interface PayPeriod {
   save_rate: number
   categories: CategorySpend[]
   is_current: boolean
+  period_end_is_estimate: boolean
 }
 
 export interface CategoryAverage {
@@ -43,13 +44,14 @@ export interface IncomeSourcesData {
   sources: IncomeSource[]
 }
 
-export function usePaycheckTracer(incomeItemId?: number, periods: number = 6) {
+export function usePaycheckTracer(incomeItemId?: number, periods: number = 6, accountId?: string) {
   const params = new URLSearchParams()
   if (incomeItemId) params.set('income_item_id', String(incomeItemId))
   params.set('periods', String(periods))
+  if (accountId) params.set('account_id', accountId)
 
   return useQuery<PaycheckTracerData>({
-    queryKey: ['dragon-keeper', 'paycheck-tracer', incomeItemId, periods],
+    queryKey: ['dragon-keeper', 'paycheck-tracer', incomeItemId, periods, accountId],
     queryFn: () => apiFetch(`/dragon-keeper/paycheck-tracer?${params}`),
   })
 }

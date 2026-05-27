@@ -4,13 +4,16 @@ import {
   useDetectRecurring,
   useConfirmRecurring,
   useToggleSts,
+  useToggleSubscription,
   useCancelRecurring,
+  useArchiveRecurring,
   useUncancelRecurring,
   useDismissRecurring,
   type RecurringItem,
   type CancelledChargeAlert,
 } from '../../hooks/dragon-keeper/use-recurring'
 import { useToast } from './toast'
+import PayeeName from './payee-name'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
@@ -186,7 +189,9 @@ function RecurringRow({ item, onPayeeNavigate }: {
 }) {
   const confirm = useConfirmRecurring()
   const toggleSts = useToggleSts()
+  const toggleSub = useToggleSubscription()
   const cancel = useCancelRecurring()
+  const archive = useArchiveRecurring()
   const { toast } = useToast()
   const [showCancelModal, setShowCancelModal] = useState(false)
   const days = daysUntil(item.next_expected_date)
@@ -222,40 +227,67 @@ function RecurringRow({ item, onPayeeNavigate }: {
         }}
       >
         <td style={{ padding: '10px 12px' }}>
-          <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
-            {onPayeeNavigate ? (
-              <span
-                onClick={() => onPayeeNavigate(item.payee_name)}
-                style={{ cursor: 'pointer', borderBottom: '1px dashed var(--text-muted)' }}
-                onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
-                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--text-muted)' }}
-              >
-                {item.payee_name}
-              </span>
-            ) : item.payee_name}
-          </div>
+          <PayeeName
+            payeeName={item.payee_name}
+            onClick={onPayeeNavigate ? () => onPayeeNavigate(item.payee_name) : undefined}
+          />
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
             {item.cadence === 'biweekly' ? 'Biweekly' : item.cadence === 'monthly' ? 'Monthly' : 'Annual'}
             {item.occurrence_count > 0 && ` · ${item.occurrence_count} occurrences`}
+            {item.last_seen_date && ` · last seen ${formatShortDate(item.last_seen_date)}`}
           </div>
         </td>
         <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
-          <span style={{
-            padding: '2px 8px', fontSize: '10px', fontWeight: 600, borderRadius: '10px',
-            background: item.type === 'income'
-              ? 'color-mix(in srgb, var(--success) 15%, transparent)'
-              : 'color-mix(in srgb, var(--danger) 15%, transparent)',
-            color: item.type === 'income' ? 'var(--success)' : 'var(--danger)',
-          }}>
-            {item.type === 'income' ? 'Income' : 'Expense'}
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+            <span style={{
+              padding: '2px 8px', fontSize: '10px', fontWeight: 600, borderRadius: '10px',
+              background: item.type === 'income'
+                ? 'color-mix(in srgb, var(--success) 15%, transparent)'
+                : 'color-mix(in srgb, var(--danger) 15%, transparent)',
+              color: item.type === 'income' ? 'var(--success)' : 'var(--danger)',
+            }}>
+              {item.type === 'income' ? 'Income' : 'Expense'}
+            </span>
+            {item.type === 'expense' && (
+              <span
+                onClick={() => toggleSub.mutate(
+                  { id: item.id, is_subscription: !item.is_subscription },
+                  { onSuccess: () => toast(`Marked as ${!item.is_subscription ? 'subscription' : 'ad hoc'}`, 'info') },
+                )}
+                title={item.is_subscription ? 'Click to mark as ad hoc' : 'Click to mark as subscription'}
+                style={{
+                  padding: '1px 6px', fontSize: '10px', fontWeight: 600, borderRadius: '10px',
+                  cursor: 'pointer',
+                  background: item.is_subscription
+                    ? 'color-mix(in srgb, var(--accent) 12%, transparent)'
+                    : 'var(--bg-hover)',
+                  color: item.is_subscription ? 'var(--accent)' : 'var(--text-muted)',
+                  border: `1px solid ${item.is_subscription ? 'color-mix(in srgb, var(--accent) 30%, transparent)' : 'var(--border)'}`,
+                }}
+              >
+                {item.is_subscription ? 'Subscription' : 'Ad hoc'}
+              </span>
+            )}
+          </div>
         </td>
         <td style={{
           padding: '10px 12px', textAlign: 'right', whiteSpace: 'nowrap',
           fontVariantNumeric: 'tabular-nums', fontWeight: 600,
           color: item.type === 'income' ? 'var(--success)' : 'var(--text-primary)',
         }}>
-          {item.type === 'income' ? '+' : '-'}{formatCurrency(item.expected_amount)}
+          {onPayeeNavigate ? (
+            <span
+              onClick={() => onPayeeNavigate(item.payee_name)}
+              style={{ cursor: 'pointer', borderBottom: '1px dashed currentColor' }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '' }}
+              title={`View all transactions for ${item.payee_name}`}
+            >
+              {item.type === 'income' ? '+' : '-'}{formatCurrency(item.expected_amount)}
+            </span>
+          ) : (
+            <>{item.type === 'income' ? '+' : '-'}{formatCurrency(item.expected_amount)}</>
+          )}
         </td>
         <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
           <div style={{ color: 'var(--text-primary)', fontSize: '13px' }}>
@@ -297,16 +329,33 @@ function RecurringRow({ item, onPayeeNavigate }: {
                 Confirm
               </button>
             )}
-            <button
-              onClick={() => setShowCancelModal(true)}
-              style={{
-                padding: '3px 10px', fontSize: '11px', fontWeight: 600,
-                borderRadius: 'var(--radius)', border: '1px solid var(--border)',
-                cursor: 'pointer', background: 'transparent', color: 'var(--text-muted)',
-              }}
-            >
-              Cancel
-            </button>
+            {item.is_subscription ? (
+              <button
+                onClick={() => setShowCancelModal(true)}
+                style={{
+                  padding: '3px 10px', fontSize: '11px', fontWeight: 600,
+                  borderRadius: 'var(--radius)', border: '1px solid var(--border)',
+                  cursor: 'pointer', background: 'transparent', color: 'var(--text-muted)',
+                }}
+              >
+                Cancel
+              </button>
+            ) : (
+              <button
+                onClick={() => archive.mutate(
+                  item.id,
+                  { onSuccess: () => toast(`Archived "${item.payee_name}"`, 'info') },
+                )}
+                disabled={archive.isPending}
+                style={{
+                  padding: '3px 10px', fontSize: '11px', fontWeight: 600,
+                  borderRadius: 'var(--radius)', border: '1px solid var(--border)',
+                  cursor: 'pointer', background: 'transparent', color: 'var(--text-muted)',
+                }}
+              >
+                Archive
+              </button>
+            )}
           </div>
         </td>
       </tr>
@@ -334,17 +383,11 @@ function CancelledRow({ item, onPayeeNavigate }: {
         for (const td of e.currentTarget.children as any) td.style.background = 'transparent'
       }}
     >
-      <td style={{ padding: '10px 12px' }}>
-        <div style={{ fontWeight: 500, color: 'var(--text-primary)', textDecoration: 'line-through' }}>
-          {onPayeeNavigate ? (
-            <span
-              onClick={() => onPayeeNavigate(item.payee_name)}
-              style={{ cursor: 'pointer', borderBottom: '1px dashed var(--text-muted)' }}
-            >
-              {item.payee_name}
-            </span>
-          ) : item.payee_name}
-        </div>
+      <td style={{ padding: '10px 12px', textDecoration: 'line-through' }}>
+        <PayeeName
+          payeeName={item.payee_name}
+          onClick={onPayeeNavigate ? () => onPayeeNavigate(item.payee_name) : undefined}
+        />
         <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
           {item.cadence === 'biweekly' ? 'Biweekly' : item.cadence === 'monthly' ? 'Monthly' : 'Annual'}
         </div>
@@ -366,7 +409,7 @@ function CancelledRow({ item, onPayeeNavigate }: {
         {formatCurrency(item.expected_amount)}
       </td>
       <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: '12px' }}>
-        {item.cancelled_date ? formatDate(item.cancelled_date) : '—'}
+        {item.status === 'cancelled' && item.cancelled_date ? formatDate(item.cancelled_date) : item.status === 'archived' ? 'Archived' : '—'}
       </td>
       <td style={{ padding: '10px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
         <div style={{ display: 'inline-flex', gap: '4px' }}>
@@ -437,12 +480,20 @@ function ItemSection({ title, items, badge, onPayeeNavigate }: {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              {['Name', 'Type', 'Amount', 'Next Date', 'STS', ''].map((label, i) => (
-                <th key={i} style={{
+              {[
+                { label: 'Name' },
+                { label: 'Type' },
+                { label: 'Amount' },
+                { label: 'Next Date' },
+                { label: 'STS', title: 'Safe-to-Spend: include this item in your cash flow projection' },
+                { label: '' },
+              ].map(({ label, title }, i) => (
+                <th key={i} title={title} style={{
                   padding: '8px 12px', fontSize: '10px', fontWeight: 700,
                   textTransform: 'uppercase', letterSpacing: '0.5px',
                   color: 'var(--text-muted)', textAlign: i === 2 ? 'right' : i === 4 ? 'center' : 'left',
                   whiteSpace: 'nowrap',
+                  cursor: title ? 'help' : undefined,
                 }}>
                   {label}
                 </th>
@@ -487,7 +538,7 @@ function CancelledSection({ items, onPayeeNavigate }: {
           margin: 0, fontSize: '13px', fontWeight: 600,
           textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)',
         }}>
-          Cancelled
+          Cancelled / Archived
         </h3>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{items.length} item{items.length !== 1 ? 's' : ''}</span>
@@ -526,19 +577,18 @@ function CancelledSection({ items, onPayeeNavigate }: {
 /* ---- Main Component ---- */
 
 interface RecurringItemsProps {
-  onBack: () => void
   onPayeeNavigate?: (payee: string) => void
 }
 
-export default function RecurringItems({ onBack, onPayeeNavigate }: RecurringItemsProps) {
+export default function RecurringItems({ onPayeeNavigate }: RecurringItemsProps) {
   const { data, isLoading } = useRecurring()
   const detect = useDetectRecurring()
   const { toast } = useToast()
   const detectStartRef = useRef<number>(0)
 
   const items = data?.items ?? []
-  const active = items.filter(i => !i.cancelled_date)
-  const cancelled = items.filter(i => !!i.cancelled_date)
+  const active = items.filter(i => i.status === 'active')
+  const cancelled = items.filter(i => i.status === 'cancelled' || i.status === 'archived')
   const income = active.filter(i => i.type === 'income')
   const expenses = active.filter(i => i.type === 'expense')
   const unconfirmed = active.filter(i => !i.confirmed)
@@ -546,19 +596,6 @@ export default function RecurringItems({ onBack, onPayeeNavigate }: RecurringIte
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      <button
-        onClick={onBack}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: '6px',
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--accent)', fontSize: '13px', fontWeight: 500,
-          padding: 0, alignSelf: 'flex-start',
-        }}
-      >
-        <span style={{ fontSize: '16px', lineHeight: 1 }}>&larr;</span>
-        Dashboard
-      </button>
-
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
           Subscriptions & Bills

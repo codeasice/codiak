@@ -503,11 +503,7 @@ function AccountSection({ title, accounts }: { title: string; accounts: Account[
 }
 
 /* ---- Page ---- */
-interface AccountsPageProps {
-  onBack?: () => void
-}
-
-export default function AccountsPage({ onBack }: AccountsPageProps) {
+export default function AccountsPage() {
   const { data, isLoading, isError, error } = useAccountsPage()
   const [typeFilter, setTypeFilter] = useState<Set<string> | 'all'>('all')
 
@@ -536,21 +532,6 @@ export default function AccountsPage({ onBack }: AccountsPageProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {onBack && (
-        <button
-          onClick={onBack}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--accent)', fontSize: '13px', fontWeight: 500,
-            padding: 0, alignSelf: 'flex-start',
-          }}
-        >
-          <span style={{ fontSize: '16px', lineHeight: 1 }}>&larr;</span>
-          Dashboard
-        </button>
-      )}
-
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>Accounts</h2>
         {data && (

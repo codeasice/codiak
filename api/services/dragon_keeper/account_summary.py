@@ -1,6 +1,7 @@
 """Account summary service for dashboard cards."""
 import logging
 from api.models.dragon_keeper.db import get_db
+from api.services.dragon_keeper.paycheck_tracer import get_current_period_remaining
 
 logger = logging.getLogger("dragon_keeper.account_summary")
 
@@ -28,19 +29,9 @@ def get_account_summary() -> dict:
         credit_cards = [{"id": r["id"], "name": r["name"], "balance": r["balance"]} for r in cc_rows]
         credit_card_total = sum(a["balance"] for a in credit_cards)
 
-        # Pending bills (uncleared outgoing in next 30 days)
-        pending_row = conn.execute("""
-            SELECT COALESCE(SUM(ABS(amount)), 0.0) as total,
-                   COUNT(*) as count
-            FROM transactions
-            WHERE amount < 0
-            AND cleared = 'uncleared'
-            AND date >= date('now')
-            AND date <= date('now', '+30 days')
-            AND deleted = 0
-        """).fetchone()
-
         has_data = conn.execute("SELECT COUNT(*) as cnt FROM accounts").fetchone()["cnt"] > 0
+
+        remaining = get_current_period_remaining()
 
         return {
             "checking": {
@@ -51,11 +42,7 @@ def get_account_summary() -> dict:
                 "total": round(credit_card_total, 2),
                 "accounts": credit_cards,
             },
-            "pending_bills": {
-                "total": round(pending_row["total"], 2),
-                "count": pending_row["count"],
-                "timeframe": "Next 30 days",
-            },
+            "remaining_period": remaining,
             "has_data": has_data,
         }
     finally:

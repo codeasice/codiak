@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import PayeeName from './payee-name'
 import {
   useTransactionSearch,
   usePayeeSummary,
@@ -204,6 +205,8 @@ function PayeeSummaryHeader({ payee }: { payee: string }) {
 
 /* ---- Filter Bar ---- */
 
+type DatePreset = 'all' | 'this-month' | 'past-90' | 'custom'
+
 interface FilterBarProps {
   filters: TransactionFilters
   onFilterChange: (updates: Partial<TransactionFilters>) => void
@@ -213,9 +216,51 @@ interface FilterBarProps {
 
 function FilterBar({ filters, onFilterChange, categories, accounts }: FilterBarProps) {
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [datePreset, setDatePreset] = useState<DatePreset>(() =>
+    filters.date_from || filters.date_to ? 'custom' : 'all'
+  )
   const payeeInputRef = useRef<HTMLInputElement>(null)
 
+  function todayStr() { return new Date().toISOString().split('T')[0] }
+  function firstOfMonthStr() {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+  }
+  function past90Str() {
+    const d = new Date()
+    d.setDate(d.getDate() - 90)
+    return d.toISOString().split('T')[0]
+  }
+
+  function handlePresetChange(preset: DatePreset) {
+    setDatePreset(preset)
+    if (preset === 'all') {
+      onFilterChange({ date_from: undefined, date_to: undefined, page: 1 })
+    } else if (preset === 'this-month') {
+      onFilterChange({ date_from: firstOfMonthStr(), date_to: todayStr(), page: 1 })
+    } else if (preset === 'past-90') {
+      onFilterChange({ date_from: past90Str(), date_to: todayStr(), page: 1 })
+    }
+    // 'custom' — leave dates unchanged, show pickers
+  }
+
   useEffect(() => { payeeInputRef.current?.focus() }, [])
+
+  const groups = useMemo(() => {
+    const seen = new Set<string>()
+    const result: string[] = []
+    for (const c of categories) {
+      if (c.group_name && !seen.has(c.group_name)) { seen.add(c.group_name); result.push(c.group_name) }
+    }
+    return result.sort()
+  }, [categories])
+
+  const filteredCategories = useMemo(() =>
+    filters.category_group
+      ? categories.filter(c => c.group_name === filters.category_group)
+      : categories,
+    [categories, filters.category_group]
+  )
 
   const inputStyle: React.CSSProperties = {
     padding: '8px 12px', fontSize: '13px',
@@ -264,12 +309,22 @@ function FilterBar({ filters, onFilterChange, categories, accounts }: FilterBarP
         </div>
 
         <select
+          value={filters.category_group ?? ''}
+          onChange={e => onFilterChange({ category_group: e.target.value || undefined, category_id: undefined, page: 1 })}
+          style={{ ...inputStyle, flex: '0 1 180px', cursor: 'pointer' }}
+        >
+          <option value="">All Groups</option>
+          {groups.map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
+
+        <select
           value={filters.category_id ?? ''}
           onChange={e => onFilterChange({ category_id: e.target.value || undefined, page: 1 })}
           style={{ ...inputStyle, flex: '0 1 200px', cursor: 'pointer' }}
         >
           <option value="">All Categories</option>
-          {categories.map(c => (
+          <option value="__uncategorized__">— Uncategorized —</option>
+          {filteredCategories.map(c => (
             <option key={c.id} value={c.id}>{c.group_name} / {c.name}</option>
           ))}
         </select>
@@ -299,14 +354,18 @@ function FilterBar({ filters, onFilterChange, categories, accounts }: FilterBarP
           Filters {showAdvanced ? '\u25B2' : '\u25BC'}
         </button>
 
-        {(filters.payee || filters.exact_payee || filters.category_id || filters.account_id || filters.date_from || filters.date_to || filters.amount_min != null || filters.amount_max != null) && (
+        {(filters.payee || filters.exact_payee || filters.category_id || filters.category_group || filters.account_id || filters.date_from || filters.date_to || filters.amount_min != null || filters.amount_max != null) && (
           <button
-            onClick={() => onFilterChange({
-              payee: undefined, exact_payee: undefined, category_id: undefined,
-              account_id: undefined, date_from: undefined, date_to: undefined,
-              amount_min: undefined, amount_max: undefined,
-              page: 1,
-            })}
+            onClick={() => {
+              setDatePreset('all')
+              onFilterChange({
+                payee: undefined, exact_payee: undefined, category_id: undefined,
+                category_group: undefined, account_id: undefined,
+                date_from: undefined, date_to: undefined,
+                amount_min: undefined, amount_max: undefined,
+                page: 1,
+              })
+            }}
             style={{
               padding: '8px 14px', fontSize: '12px', fontWeight: 600,
               borderRadius: 'var(--radius)', border: 'none',
@@ -319,7 +378,36 @@ function FilterBar({ filters, onFilterChange, categories, accounts }: FilterBarP
         )}
       </div>
 
-      {showAdvanced && (
+      {/* Date presets */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginRight: '2px' }}>
+          Date:
+        </span>
+        {(['all', 'this-month', 'past-90', 'custom'] as DatePreset[]).map(preset => {
+          const labels: Record<DatePreset, string> = {
+            'all': 'All', 'this-month': 'This Month', 'past-90': 'Past 90 Days', 'custom': 'Custom',
+          }
+          const active = datePreset === preset
+          return (
+            <button
+              key={preset}
+              onClick={() => handlePresetChange(preset)}
+              style={{
+                padding: '5px 12px', fontSize: '12px', fontWeight: active ? 700 : 500,
+                borderRadius: 'var(--radius)', cursor: 'pointer', whiteSpace: 'nowrap',
+                border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+                background: active ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'transparent',
+                color: active ? 'var(--accent)' : 'var(--text-muted)',
+              }}
+            >
+              {labels[preset]}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Custom date pickers */}
+      {datePreset === 'custom' && (
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>From</label>
@@ -339,6 +427,11 @@ function FilterBar({ filters, onFilterChange, categories, accounts }: FilterBarP
               style={{ ...inputStyle, width: '150px' }}
             />
           </div>
+        </div>
+      )}
+
+      {showAdvanced && (
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Min $</label>
             <input
@@ -529,24 +622,25 @@ function TransactionTable({
               <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: '12px' }}>
                 {t.account_name || '—'}
               </td>
-              <td style={{ padding: '10px 12px', fontWeight: 500, color: 'var(--text-primary)' }}>
-                {onPayeeClick && t.payee_name ? (
-                  <span
-                    onClick={() => onPayeeClick(t.payee_name!)}
-                    style={{ cursor: 'pointer', borderBottom: '1px dashed var(--text-muted)' }}
-                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
-                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--text-muted)' }}
-                  >
-                    {t.payee_name}
-                  </span>
+              <td style={{ padding: '10px 12px' }}>
+                {t.payee_name ? (
+                  <PayeeName
+                    payeeName={t.payee_name}
+                    onClick={onPayeeClick ? () => onPayeeClick(t.payee_name!) : undefined}
+                  />
                 ) : (
-                  t.payee_name || 'Unknown'
+                  <span style={{ color: 'var(--text-muted)' }}>Unknown</span>
                 )}
               </td>
               <td style={{
                 padding: '10px 12px', fontSize: '12px', position: 'relative',
                 color: t.category_name ? 'var(--text-muted)' : 'var(--warning, #f59e0b)',
               }}>
+                {t.group_name && (
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', opacity: 0.6, marginBottom: '1px', lineHeight: 1.2 }}>
+                    {t.group_name}
+                  </div>
+                )}
                 <span
                   onClick={() => onEditingChange(editingId === t.id ? null : t.id)}
                   style={{ cursor: 'pointer', borderBottom: '1px dashed currentColor' }}
@@ -658,12 +752,11 @@ function BulkActionBar({ count, onRecategorize, onClear }: {
 /* ---- Main Component ---- */
 
 interface TransactionExplorerProps {
-  onBack: () => void
   initialPayee?: string
   initialFilters?: Partial<TransactionFilters>
 }
 
-export default function TransactionExplorer({ onBack, initialPayee, initialFilters }: TransactionExplorerProps) {
+export default function TransactionExplorer({ initialPayee, initialFilters }: TransactionExplorerProps) {
   const [filters, setFilters] = useState<TransactionFilters>({
     payee: initialPayee,
     sort_by: 'date',
@@ -756,21 +849,6 @@ export default function TransactionExplorer({ onBack, initialPayee, initialFilte
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      {/* Back link */}
-      <button
-        onClick={onBack}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: '6px',
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--accent)', fontSize: '13px', fontWeight: 500,
-          padding: 0, alignSelf: 'flex-start',
-        }}
-      >
-        <span style={{ fontSize: '16px', lineHeight: 1 }}>&larr;</span>
-        Dashboard
-      </button>
-
-      {/* Title */}
       <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
         Transaction Explorer
       </h2>

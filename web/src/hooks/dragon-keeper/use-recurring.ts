@@ -15,6 +15,8 @@ export interface RecurringItem {
   avg_amount: number | null
   occurrence_count: number
   cancelled_date: string | null
+  is_subscription: boolean
+  status: 'active' | 'cancelled' | 'archived'
   created_at: string
   updated_at: string
 }
@@ -119,6 +121,30 @@ export function useUncancelRecurring() {
   return useMutation({
     mutationFn: (id: number) =>
       apiFetch(`/dragon-keeper/recurring/${id}/uncancel`, { method: 'PATCH' }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: KEY })
+      qc.invalidateQueries({ queryKey: ['dragon-keeper', 'safe-to-spend'] })
+    },
+  })
+}
+
+export function useToggleSubscription() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { id: number; is_subscription: boolean }) =>
+      apiFetch(`/dragon-keeper/recurring/${data.id}/subscription`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_subscription: data.is_subscription }),
+      }),
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  })
+}
+
+export function useArchiveRecurring() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) =>
+      apiFetch(`/dragon-keeper/recurring/${id}/archive`, { method: 'PATCH' }),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: KEY })
       qc.invalidateQueries({ queryKey: ['dragon-keeper', 'safe-to-spend'] })

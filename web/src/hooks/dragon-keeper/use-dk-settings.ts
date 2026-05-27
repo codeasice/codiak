@@ -5,6 +5,7 @@ export interface DkSettings {
   projection_days: number
   buffer_amount: number
   ynab_budget_id: string
+  paycheck_account_id: string
 }
 
 const KEY = ['dragon-keeper', 'settings'] as const
@@ -20,7 +21,7 @@ export function useDkSettings() {
 export function useUpdateDkSettings() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { projection_days?: number; buffer_amount?: number }) =>
+    mutationFn: (data: { projection_days?: number; buffer_amount?: number; paycheck_account_id?: string }) =>
       apiFetch('/dragon-keeper/settings', {
         method: 'PATCH',
         body: JSON.stringify(data),

@@ -1,10 +1,26 @@
 """Paycheck Tracer — shows where each paycheck goes by category."""
+import calendar
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 from api.models.dragon_keeper.db import get_db
 
 logger = logging.getLogger("dragon_keeper.paycheck_tracer")
+
+
+def get_current_period_remaining() -> dict:
+    """Return spent/remaining for the active pay period (used by dashboard card)."""
+    result = trace_paycheck()
+    current = next((p for p in result.get("periods", []) if p.get("is_current")), None)
+    if not current:
+        return {"total": 0.0, "spent": 0.0, "paycheck_amount": 0.0, "period_start": None, "period_end": None}
+    return {
+        "total": current["total_saved"],
+        "spent": current["total_spent"],
+        "paycheck_amount": current["paycheck_amount"],
+        "period_start": current["period_start"],
+        "period_end": current["period_end"],
+    }
 
 
 def get_income_sources() -> list[dict]:
@@ -23,7 +39,7 @@ def get_income_sources() -> list[dict]:
         conn.close()
 
 
-def trace_paycheck(income_item_id: int | None = None, num_periods: int = 6) -> dict:
+def trace_paycheck(income_item_id: int | None = None, num_periods: int = 6, account_id: str | None = None) -> dict:
     """Trace where paychecks went over recent pay periods.
 
     Returns:
@@ -55,8 +71,9 @@ def trace_paycheck(income_item_id: int | None = None, num_periods: int = 6) -> d
             SELECT date, amount FROM transactions
             WHERE payee_name = ? AND amount > 0 AND deleted = 0
             AND transfer_account_id IS NULL
+            AND (? IS NULL OR account_id = ?)
             ORDER BY date DESC
-        """, (payee,)).fetchall()
+        """, (payee, account_id, account_id)).fetchall()
 
         if len(paycheck_rows) < 2:
             return {
@@ -82,7 +99,7 @@ def trace_paycheck(income_item_id: int | None = None, num_periods: int = 6) -> d
             period_end = paycheck_dates[i]
             paycheck_amount = by_date[period_start]
 
-            breakdown = _get_period_spending(conn, period_start, period_end)
+            breakdown = _get_period_spending(conn, period_start, period_end, account_id)
 
             total_spent = sum(c["amount"] for c in breakdown)
             total_saved = paycheck_amount - total_spent
@@ -95,11 +112,32 @@ def trace_paycheck(income_item_id: int | None = None, num_periods: int = 6) -> d
                 "total_saved": round(total_saved, 2),
                 "save_rate": round((total_saved / paycheck_amount * 100) if paycheck_amount else 0, 1),
                 "categories": breakdown,
-                "is_current": i == 0 and _is_current_period(period_end),
+                "is_current": False,
+                "period_end_is_estimate": False,
             })
 
         # Reverse to chronological order
         periods.reverse()
+
+        # Append the current active period (from last paycheck to estimated next)
+        today = datetime.now().strftime("%Y-%m-%d")
+        last_paycheck = paycheck_dates[0]
+        if last_paycheck <= today:
+            next_estimated = _estimate_next_date(last_paycheck, source_dict["cadence"])
+            current_breakdown = _get_period_spending(conn, last_paycheck, today, account_id)
+            current_spent = sum(c["amount"] for c in current_breakdown)
+            current_amount = by_date[last_paycheck]
+            periods.append({
+                "period_start": last_paycheck,
+                "period_end": next_estimated,
+                "paycheck_amount": round(current_amount, 2),
+                "total_spent": round(current_spent, 2),
+                "total_saved": round(current_amount - current_spent, 2),
+                "save_rate": round(((current_amount - current_spent) / current_amount * 100) if current_amount else 0, 1),
+                "categories": current_breakdown,
+                "is_current": True,
+                "period_end_is_estimate": True,
+            })
 
         category_averages = _compute_averages(periods)
 
@@ -112,7 +150,7 @@ def trace_paycheck(income_item_id: int | None = None, num_periods: int = 6) -> d
         conn.close()
 
 
-def _get_period_spending(conn, start_date: str, end_date: str) -> list[dict]:
+def _get_period_spending(conn, start_date: str, end_date: str, account_id: str | None = None) -> list[dict]:
     """Get spending breakdown by category for a pay period."""
     rows = conn.execute("""
         SELECT
@@ -124,9 +162,10 @@ def _get_period_spending(conn, start_date: str, end_date: str) -> list[dict]:
         AND amount < 0
         AND deleted = 0
         AND transfer_account_id IS NULL
+        AND (? IS NULL OR account_id = ?)
         GROUP BY COALESCE(category_name, 'Uncategorized')
         ORDER BY total DESC
-    """, (start_date, end_date)).fetchall()
+    """, (start_date, end_date, account_id, account_id)).fetchall()
 
     return [
         {
@@ -138,10 +177,19 @@ def _get_period_spending(conn, start_date: str, end_date: str) -> list[dict]:
     ]
 
 
-def _is_current_period(period_end: str) -> bool:
-    """Check if this is the currently active pay period."""
-    today = datetime.now().strftime("%Y-%m-%d")
-    return period_end >= today
+def _estimate_next_date(date_str: str, cadence: str) -> str:
+    """Estimate the next paycheck date based on cadence."""
+    d = datetime.strptime(date_str, "%Y-%m-%d")
+    if cadence == "biweekly":
+        next_d = d + timedelta(days=14)
+    elif cadence == "monthly":
+        month = d.month % 12 + 1
+        year = d.year + (1 if d.month == 12 else 0)
+        day = min(d.day, calendar.monthrange(year, month)[1])
+        next_d = d.replace(year=year, month=month, day=day)
+    else:
+        next_d = d.replace(year=d.year + 1)
+    return next_d.strftime("%Y-%m-%d")
 
 
 def _format_source(source: dict) -> dict:

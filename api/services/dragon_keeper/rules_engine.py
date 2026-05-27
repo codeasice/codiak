@@ -7,6 +7,7 @@ from api.models.dragon_keeper.db import (
     apply_rule_to_transaction,
     mark_pending_review,
     get_manual_review_payees,
+    enqueue_write_back,
 )
 
 logger = logging.getLogger("dragon_keeper.rules_engine")
@@ -76,6 +77,7 @@ def run_rules_engine(reprocess: bool = False) -> dict:
             for rule in rules:
                 if _matches_rule(txn, rule):
                     apply_rule_to_transaction(conn, txn["id"], rule["category_id"], rule["id"])
+                    enqueue_write_back(conn, txn["id"], rule["category_id"])
                     matched += 1
                     rule_found = True
                     break

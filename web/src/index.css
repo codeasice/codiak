@@ -338,6 +338,7 @@ select { cursor: pointer; }
 .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
 .btn-ghost.btn-warn { color: var(--warning, #f59e0b); }
 .btn-ghost.btn-warn:hover { color: var(--text-primary); }
+.btn-ghost.dk-nav-active { background: var(--bg-hover); color: var(--text-primary); border-color: var(--accent); }
 
 .btn-push {
   background: var(--bg-hover);
@@ -535,3 +536,7 @@ select { cursor: pointer; }
   background: var(--accent-glow);
   color: var(--accent);
 }
+
+/* PayeeName component */
+span:hover > span > .payee-edit-btn { opacity: 0.5 !important; }
+.payee-edit-btn:hover { opacity: 1 !important; color: var(--accent) !important; }

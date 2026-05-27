@@ -13,6 +13,7 @@ CADENCE_CONFIG = {
     "annual":   {"range": (350, 380), "min_occurrences": 2},
 }
 AMOUNT_TOLERANCE = 0.15
+SUBSCRIPTION_CV_THRESHOLD = 0.08  # ≤8% coefficient of variation → classify as subscription
 
 
 def detect_recurring_transactions() -> dict:
@@ -125,6 +126,11 @@ def _check_cadence(dates: list[datetime], amounts: list[float], cadence: str) ->
                 return None
 
     is_income = mean(amounts[-sample_size:]) > 0
+
+    recent_amounts = [abs(a) for a in amounts[-sample_size:]]
+    amount_cv = (stdev(recent_amounts) / mean(recent_amounts)) if len(recent_amounts) > 1 and mean(recent_amounts) > 0 else 0
+    is_subscription = not is_income and amount_cv <= SUBSCRIPTION_CV_THRESHOLD
+
     last_date = dates[-1]
     expected_day = last_date.day
 
@@ -144,6 +150,7 @@ def _check_cadence(dates: list[datetime], amounts: list[float], cadence: str) ->
         "last_seen_date": last_date.strftime("%Y-%m-%d"),
         "avg_amount": round(avg_amount, 2),
         "occurrence_count": len(dates),
+        "is_subscription": is_subscription,
     }
 
 
@@ -195,7 +202,7 @@ def _get_existing_recurring(conn) -> list[dict]:
 
 def _get_cancelled_payees(conn) -> set[str]:
     rows = conn.execute(
-        "SELECT LOWER(payee_name) as pn FROM recurring_items WHERE cancelled_date IS NOT NULL"
+        "SELECT LOWER(payee_name) as pn FROM recurring_items WHERE status IN ('cancelled', 'archived')"
     ).fetchall()
     return {r["pn"] for r in rows}
 
@@ -221,11 +228,13 @@ def _insert_new(conn, item: dict):
         INSERT INTO recurring_items
             (payee_name, payee_pattern, type, cadence, expected_amount,
              expected_day, next_expected_date, confirmed, include_in_sts,
-             last_seen_date, avg_amount, occurrence_count, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?, ?, ?, ?)
+             last_seen_date, avg_amount, occurrence_count, is_subscription,
+             status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?, ?, ?, 'active', ?, ?)
     """, (
         item["payee_name"], item["payee_name"], item["type"], item["cadence"],
         item["expected_amount"], item["expected_day"], item["next_expected_date"],
         item["last_seen_date"], item["avg_amount"], item["occurrence_count"],
+        1 if item.get("is_subscription") else 0,
         now, now,
     ))

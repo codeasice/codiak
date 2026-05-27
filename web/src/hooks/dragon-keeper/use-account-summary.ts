@@ -16,10 +16,12 @@ export interface AccountSummaryData {
     total: number
     accounts: AccountDetail[]
   }
-  pending_bills: {
+  remaining_period: {
     total: number
-    count: number
-    timeframe: string
+    spent: number
+    paycheck_amount: number
+    period_start: string | null
+    period_end: string | null
   }
   has_data: boolean
 }
