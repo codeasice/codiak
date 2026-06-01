@@ -4,6 +4,7 @@ import {
 } from '../../hooks/dragon-keeper/use-categorization-queue'
 import { useInvestigate } from '../../hooks/dragon-keeper/use-investigate'
 import { useToast } from './toast'
+import PayeeName from './payee-name'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
@@ -441,20 +442,13 @@ export default function CategorizationQueue({ onPayeeNavigate }: { onPayeeNaviga
                     {formatDate(item.date)}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
-                    <div style={{ fontWeight: 500, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {onPayeeNavigate && item.payee_name ? (
-                        <span
-                          onClick={() => onPayeeNavigate(item.payee_name!)}
-                          style={{ cursor: 'pointer', borderBottom: '1px dashed var(--text-muted)' }}
-                          onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
-                          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--text-muted)' }}
-                          title={`View all transactions for ${item.payee_name}`}
-                        >
-                          {item.payee_name}
-                        </span>
-                      ) : (
-                        item.payee_name || 'Unknown'
-                      )}
+                    <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {item.payee_name ? (
+                        <PayeeName
+                          payeeName={item.payee_name}
+                          onClick={onPayeeNavigate ? () => onPayeeNavigate(item.payee_name!) : undefined}
+                        />
+                      ) : 'Unknown'}
                       {item.payee_total_count != null && item.payee_total_count > 1 && (
                         <span
                           title={`${item.payee_total_count} total transactions for this payee will be affected by a rule`}

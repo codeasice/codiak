@@ -9,6 +9,7 @@ import { usePaycheckConfig, type PaycheckConfig } from '../../hooks/dragon-keepe
 import { useAccountsPage, type Account } from '../../hooks/dragon-keeper/use-accounts-page'
 import { useDkSettings, useUpdateDkSettings } from '../../hooks/dragon-keeper/use-dk-settings'
 import { useRecurring, type RecurringItem } from '../../hooks/dragon-keeper/use-recurring'
+import PayeeName from './payee-name'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
@@ -29,10 +30,11 @@ function addCadenceDays(dateStr: string, cadence: string): string {
 
 /* ---- Remaining Bills Panel ---- */
 
-function RemainingBillsPanel({ bills, nextPaycheckDate, account }: {
+function RemainingBillsPanel({ bills, nextPaycheckDate, account, onPayeeNavigate }: {
   bills: RecurringItem[]
   nextPaycheckDate: string
   account?: Account
+  onPayeeNavigate?: (payee: string) => void
 }) {
   const [expanded, setExpanded] = useState(true)
   const today = new Date().toISOString().split('T')[0]
@@ -99,8 +101,11 @@ function RemainingBillsPanel({ bills, nextPaycheckDate, account }: {
                 padding: '9px 20px', borderBottom: '1px solid var(--border)',
               }}>
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
-                    {bill.payee_name}
+                  <div style={{ fontSize: '13px', fontWeight: 500 }}>
+                    <PayeeName
+                      payeeName={bill.payee_name}
+                      onClick={onPayeeNavigate ? () => onPayeeNavigate(bill.payee_name) : undefined}
+                    />
                   </div>
                   <div style={{ fontSize: '11px', color: daysColor, marginTop: '1px', fontWeight: isOverdue || isDueToday ? 600 : 400 }}>
                     {dueLabel}
@@ -642,6 +647,7 @@ export default function PaycheckTracer({ onPayeeNavigate, onNavigateToExplorer }
           bills={remainingBills}
           nextPaycheckDate={nextPaycheckEstimate}
           account={selectedAccount}
+          onPayeeNavigate={onPayeeNavigate}
         />
       )}
 

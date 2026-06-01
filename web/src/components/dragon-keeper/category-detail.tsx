@@ -3,6 +3,7 @@ import { useCategoryDetail, type CategoryTransaction } from '../../hooks/dragon-
 import { useCategories, useRecategorize } from '../../hooks/dragon-keeper/use-categorization-queue'
 import { useToast } from './toast'
 import CategoryChart from './category-chart'
+import PayeeName from './payee-name'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
@@ -333,23 +334,13 @@ function TransactionTable({ transactions, onPayeeNavigate }: TransactionTablePro
               }}>
                 {formatDate(t.date)}
               </td>
-              <td style={{
-                padding: '10px 12px', fontWeight: 500,
-                color: 'var(--text-primary)',
-              }}>
-                {onPayeeNavigate && t.payee_name ? (
-                  <span
-                    onClick={() => onPayeeNavigate(t.payee_name!)}
-                    style={{ cursor: 'pointer', borderBottom: '1px dashed var(--text-muted)' }}
-                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
-                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--text-muted)' }}
-                    title={`View all transactions for ${t.payee_name}`}
-                  >
-                    {t.payee_name}
-                  </span>
-                ) : (
-                  t.payee_name || 'Unknown'
-                )}
+              <td style={{ padding: '10px 12px', fontWeight: 500 }}>
+                {t.payee_name ? (
+                  <PayeeName
+                    payeeName={t.payee_name}
+                    onClick={onPayeeNavigate ? () => onPayeeNavigate(t.payee_name!) : undefined}
+                  />
+                ) : 'Unknown'}
               </td>
               <td style={{
                 padding: '10px 12px', textAlign: 'right', whiteSpace: 'nowrap',

@@ -19,12 +19,13 @@ import PaycheckTracer from '../components/dragon-keeper/paycheck-tracer'
 import BalanceChart from '../components/dragon-keeper/balance-chart'
 import SpendingFlow from '../components/dragon-keeper/spending-flow'
 import AccountsPage from '../components/dragon-keeper/accounts-page'
+import CategoryExplorer from '../components/dragon-keeper/category-explorer'
 import KeeperChatDrawer from '../components/dragon-keeper/keeper-chat-drawer'
 import { ToastProvider } from '../components/dragon-keeper/toast'
 import { useRecurring } from '../hooks/dragon-keeper/use-recurring'
-import { Settings, LayoutDashboard, ArrowLeftRight, RefreshCw, Wallet, CreditCard, TrendingUp } from 'lucide-react'
+import { Settings, LayoutDashboard, ArrowLeftRight, RefreshCw, Wallet, CreditCard, TrendingUp, Tag } from 'lucide-react'
 
-type DkView = 'dashboard' | 'transactions' | 'recurring' | 'settings' | 'paycheck' | 'flow' | 'accounts'
+type DkView = 'dashboard' | 'transactions' | 'recurring' | 'settings' | 'paycheck' | 'flow' | 'accounts' | 'categories'
 
 const VIEW_LABELS: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -35,6 +36,7 @@ const VIEW_LABELS: Record<string, string> = {
   flow: 'Flow',
   accounts: 'Accounts',
   category: 'Category',
+  categories: 'Categories',
 }
 
 export default function DragonKeeper() {
@@ -139,6 +141,8 @@ function DragonKeeperInner() {
         return <SpendingFlow onPayeeNavigate={navigateToPayee} />
       case 'accounts':
         return <AccountsPage />
+      case 'categories':
+        return <CategoryExplorer onPayeeNavigate={navigateToPayee} />
       default:
         return (
           <>
@@ -252,6 +256,13 @@ function DragonKeeperInner() {
           >
             <TrendingUp size={14} />
             Flow
+          </button>
+          <button
+            className={`btn btn-ghost${view === 'categories' ? ' dk-nav-active' : ''}`}
+            onClick={() => navigate('categories')}
+          >
+            <Tag size={14} />
+            Categories
           </button>
         </div>
 

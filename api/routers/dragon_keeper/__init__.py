@@ -21,6 +21,7 @@ from api.routers.dragon_keeper.charts import router as charts_router
 from api.routers.dragon_keeper.investigate import router as investigate_router
 from api.routers.dragon_keeper.accounts_page import router as accounts_page_router
 from api.routers.dragon_keeper.payees import router as payees_router
+from api.routers.dragon_keeper.category_explorer import router as category_explorer_router
 
 router = APIRouter()
 
@@ -46,6 +47,7 @@ router.include_router(charts_router)
 router.include_router(investigate_router)
 router.include_router(accounts_page_router)
 router.include_router(payees_router)
+router.include_router(category_explorer_router)
 
 
 @router.get("/health")

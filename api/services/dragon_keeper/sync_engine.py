@@ -219,6 +219,13 @@ def run_sync(budget_id: str | None = None) -> dict:
         except Exception as e:
             logger.warning("Balance snapshot failed: %s", e)
 
+        try:
+            from api.services.dragon_keeper.recurring_detection import detect_recurring_transactions
+            rec_result = detect_recurring_transactions()
+            logger.info("Post-sync recurring detection: %s", rec_result)
+        except Exception as e:
+            logger.warning("Post-sync recurring detection failed: %s", e)
+
         is_delta = server_knowledge is not None
         return {
             "status": "success",
