@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useSpendingFlow, type SankeyNode, type SankeyLink } from '../../hooks/dragon-keeper/use-charts'
+import { useAccountsPage } from '../../hooks/dragon-keeper/use-accounts-page'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount)
@@ -259,9 +260,16 @@ export default function SpendingFlow({ onPayeeNavigate }: SpendingFlowProps) {
   const [month, setMonth] = useState<string | undefined>(undefined)
   const [minAmount, setMinAmount] = useState(10)
   const [maxPayees, setMaxPayees] = useState(30)
-  const { data, isLoading } = useSpendingFlow(month, minAmount, maxPayees)
+  const [accountId, setAccountId] = useState<string | undefined>(undefined)
+  const { data: accountsData } = useAccountsPage()
+  const { data, isLoading } = useSpendingFlow(month, minAmount, maxPayees, accountId)
 
+  const accounts = useMemo(
+    () => (accountsData?.accounts ?? []).filter(a => a.on_budget),
+    [accountsData],
+  )
   const availableMonths = data?.available_months ?? []
+  const selectedAccount = accounts.find(a => a.id === accountId)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -271,10 +279,28 @@ export default function SpendingFlow({ onPayeeNavigate }: SpendingFlowProps) {
           {data && (
             <span style={{ marginLeft: '10px', fontSize: '13px', fontWeight: 400, color: 'var(--text-muted)' }}>
               {formatMonthLabel(data.month)} &mdash; {formatCurrency(data.total_spending)} across {data.transaction_count} transactions
+              {selectedAccount && (
+                <> &middot; {selectedAccount.name.length > 30 ? selectedAccount.name.slice(0, 29) + '…' : selectedAccount.name}</>
+              )}
             </span>
           )}
         </h2>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <select
+            value={accountId ?? ''}
+            onChange={e => setAccountId(e.target.value || undefined)}
+            style={{
+              padding: '6px 10px', fontSize: '12px',
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', color: 'var(--text-primary)',
+              maxWidth: '220px',
+            }}
+          >
+            <option value="">All Accounts</option>
+            {accounts.map(a => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
           <select
             value={month ?? ''}
             onChange={e => setMonth(e.target.value || undefined)}

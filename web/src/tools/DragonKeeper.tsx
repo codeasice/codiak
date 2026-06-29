@@ -20,12 +20,15 @@ import BalanceChart from '../components/dragon-keeper/balance-chart'
 import SpendingFlow from '../components/dragon-keeper/spending-flow'
 import AccountsPage from '../components/dragon-keeper/accounts-page'
 import CategoryExplorer from '../components/dragon-keeper/category-explorer'
+import PlanningPage from '../components/dragon-keeper/planning-page'
+import BudgetPage from '../components/dragon-keeper/budget-page'
+import MajorPurchasesWidget from '../components/dragon-keeper/major-purchases-widget'
 import KeeperChatDrawer from '../components/dragon-keeper/keeper-chat-drawer'
 import { ToastProvider } from '../components/dragon-keeper/toast'
 import { useRecurring } from '../hooks/dragon-keeper/use-recurring'
-import { Settings, LayoutDashboard, ArrowLeftRight, RefreshCw, Wallet, CreditCard, TrendingUp, Tag } from 'lucide-react'
+import { Settings, LayoutDashboard, ArrowLeftRight, RefreshCw, Wallet, CreditCard, TrendingUp, Tag, ClipboardList, Target } from 'lucide-react'
 
-type DkView = 'dashboard' | 'transactions' | 'recurring' | 'settings' | 'paycheck' | 'flow' | 'accounts' | 'categories'
+type DkView = 'dashboard' | 'transactions' | 'recurring' | 'settings' | 'paycheck' | 'flow' | 'accounts' | 'categories' | 'planning' | 'budget'
 
 const VIEW_LABELS: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -37,6 +40,8 @@ const VIEW_LABELS: Record<string, string> = {
   accounts: 'Accounts',
   category: 'Category',
   categories: 'Categories',
+  planning: 'Planning',
+  budget: 'Budget',
 }
 
 export default function DragonKeeper() {
@@ -86,6 +91,13 @@ function DragonKeeperInner() {
   const navigateToCategoryPeriod = useCallback((categoryId: string, dateFrom: string, dateTo: string) => {
     setTxnPayeeFilter(undefined)
     setTxnInitialFilters({ category_id: categoryId, date_from: dateFrom, date_to: dateTo })
+    setSelectedCategoryId(null)
+    setView('transactions')
+  }, [])
+
+  const navigateToMajorPurchases = useCallback((filters: { amount_min: number; date_from?: string; sort_by: string; sort_dir: string; outflow_only: boolean; exclude_recurring: boolean }) => {
+    setTxnPayeeFilter(undefined)
+    setTxnInitialFilters(filters)
     setSelectedCategoryId(null)
     setView('transactions')
   }, [])
@@ -143,6 +155,10 @@ function DragonKeeperInner() {
         return <AccountsPage />
       case 'categories':
         return <CategoryExplorer onPayeeNavigate={navigateToPayee} />
+      case 'planning':
+        return <PlanningPage />
+      case 'budget':
+        return <BudgetPage onCategoryClick={(id) => setSelectedCategoryId(id)} />
       default:
         return (
           <>
@@ -184,6 +200,7 @@ function DragonKeeperInner() {
               />
               <BalanceChart />
               <CategorizationQueue onPayeeNavigate={navigateToPayee} />
+              <MajorPurchasesWidget onPayeeNavigate={navigateToPayee} onViewAll={navigateToMajorPurchases} />
               <ActivitySquares />
               <SyncHealthCollapsible />
             </div>
@@ -263,6 +280,20 @@ function DragonKeeperInner() {
           >
             <Tag size={14} />
             Categories
+          </button>
+          <button
+            className={`btn btn-ghost${view === 'planning' ? ' dk-nav-active' : ''}`}
+            onClick={() => navigate('planning')}
+          >
+            <ClipboardList size={14} />
+            Planning
+          </button>
+          <button
+            className={`btn btn-ghost${view === 'budget' ? ' dk-nav-active' : ''}`}
+            onClick={() => navigate('budget')}
+          >
+            <Target size={14} />
+            Budget
           </button>
         </div>
 

@@ -5,7 +5,7 @@ export interface UpcomingItem {
   id: number
   payee_name: string
   type: 'income' | 'expense'
-  cadence: 'biweekly' | 'monthly' | 'annual'
+  cadence: 'biweekly' | 'monthly' | 'semi_monthly' | 'annual'
   expected_amount: number
   next_expected_date: string
   confirmed: boolean

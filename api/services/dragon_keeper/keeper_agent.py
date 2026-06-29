@@ -1,5 +1,9 @@
-"""Keeper Agent — conversational financial assistant powered by OpenAI function calling."""
-import asyncio
+"""Keeper Agent — conversational financial assistant powered by OpenAI function calling.
+
+Tools are discovered dynamically from the MCP server (ynab_mcp.ynab_server) so that
+adding a new @mcp.tool() there automatically makes it available here — no manual
+TOOLS list or _run_tool dispatch needed.
+"""
 import json
 import logging
 import os
@@ -13,7 +17,6 @@ from api.models.dragon_keeper.db import (
     save_chat_message,
     clear_chat_history,
 )
-from api.services.dragon_keeper import keeper_tools as kt
 
 load_dotenv()
 
@@ -35,7 +38,7 @@ _SYSTEM_PROMPT_BASE = (
     "maps to 'Dining', 'groceries' maps to 'Groceries', etc. Always use the exact "
     "category name from this list when calling tools. "
     "IMPORTANT: Never state that a category exists or doesn't exist based on memory. "
-    "Always call search_categories first when the user asks about a specific category.\n\n"
+    "Always call get_categories_tool first when the user asks about a specific category.\n\n"
 )
 
 
@@ -66,192 +69,67 @@ def _build_system_prompt() -> str:
 
     return _SYSTEM_PROMPT_BASE + "\n".join(lines)
 
-TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "query_spending",
-            "description": "Look up spending totals and recent transactions, optionally filtered by payee name, category, or time range. Results include account name, payee, amount, and category for each transaction. Use days=0 for all-time totals. When the user asks for a 'total' without specifying a time period, use days=0.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "payee": {"type": "string", "description": "Partial payee name to filter by"},
-                    "category": {"type": "string", "description": "Partial category name to filter by"},
-                    "days": {"type": "integer", "description": "Number of days to look back. Default 30. Use 0 for all time."},
-                },
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_balances",
-            "description": "Get all account balances and the safe-to-spend amount.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_spending_breakdown",
-            "description": "Get the top spending categories for a time period.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "days": {"type": "integer", "description": "Number of days to look back (default 30)"},
-                },
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_pending_categorizations",
-            "description": "Get transactions waiting for categorization review.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "approve_transactions",
-            "description": "Approve one or more pending transactions using their suggested categories.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "transaction_ids": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "List of transaction IDs to approve",
-                    },
-                },
-                "required": ["transaction_ids"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "correct_transaction",
-            "description": "Correct a transaction's category to a different one by category name.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "transaction_id": {"type": "string", "description": "The transaction ID to correct"},
-                    "category_name": {"type": "string", "description": "The correct category name"},
-                },
-                "required": ["transaction_id", "category_name"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "recategorize_by_payee",
-            "description": "Bulk re-categorize all transactions matching a payee pattern to a new category. Use this when the user wants to change multiple transactions from one payee to a different category.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "payee": {"type": "string", "description": "Payee name or partial match"},
-                    "new_category": {"type": "string", "description": "The target category name to assign"},
-                    "current_category": {"type": "string", "description": "Optional: only change transactions currently in this category"},
-                },
-                "required": ["payee", "new_category"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "generate_debrief",
-            "description": "Generate a daily financial debrief with balances, spending, streak, and queue status.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "search_categories",
-            "description": "Search for categories by name. ALWAYS use this when the user asks whether a specific category exists — never answer category existence questions from memory.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "The category name or partial name to search for"},
-                },
-                "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "sync",
-            "description": "Pull fresh transaction and account data from YNAB, then push any approved categorizations back. Use when the user asks to sync, refresh, or update data from YNAB.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "flush_queue": {
-                        "type": "boolean",
-                        "description": "Also push approved categorizations back to YNAB (default true).",
-                    },
-                },
-                "required": [],
-            },
-        },
-    },
-]
+
+# ---------------------------------------------------------------------------
+# MCP-backed tool discovery and execution
+# ---------------------------------------------------------------------------
+
+_mcp_tools_cache: dict | None = None
 
 
-def _run_tool(name: str, args: dict) -> str:
-    """Synchronous tool dispatch — called in a thread pool to avoid blocking the event loop."""
+async def _get_mcp_tools() -> dict:
+    """Return the FastMCP FunctionTool dict, loading once and caching."""
+    global _mcp_tools_cache
+    if _mcp_tools_cache is None:
+        from ynab_mcp.ynab_server import mcp
+        _mcp_tools_cache = await mcp.get_tools()
+    return _mcp_tools_cache
+
+
+async def _get_openai_tools() -> list[dict]:
+    """Convert MCP tool schemas to OpenAI function-calling format."""
+    tools = await _get_mcp_tools()
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": t.name,
+                "description": t.description or "",
+                "parameters": t.parameters,
+            },
+        }
+        for t in tools.values()
+    ]
+
+
+async def _execute_tool(name: str, args: dict) -> str:
+    """Call a tool via FastMCP in-process and return the result as a JSON string."""
+    tools = await _get_mcp_tools()
+    tool = tools.get(name)
+    if not tool:
+        return json.dumps({"error": f"Unknown tool: {name}"})
     try:
-        if name == "query_spending":
-            days = args.get("days", 30)
-            result = kt.tool_query_spending(args.get("payee"), args.get("category"), days or 30)
-        elif name == "get_balances":
-            result = kt.tool_get_balances()
-        elif name == "get_spending_breakdown":
-            result = kt.tool_get_spending_breakdown(args.get("days", 30))
-        elif name == "get_pending_categorizations":
-            result = kt.tool_get_pending_categorizations()
-        elif name == "approve_transactions":
-            result = kt.tool_approve_transactions(args["transaction_ids"])
-        elif name == "correct_transaction":
-            result = kt.tool_correct_transaction(args["transaction_id"], args["category_name"])
-        elif name == "recategorize_by_payee":
-            result = kt.tool_recategorize_by_payee(
-                args["payee"], args["new_category"], args.get("current_category")
-            )
-        elif name == "search_categories":
-            result = kt.tool_search_categories(args["query"])
-        elif name == "generate_debrief":
-            result = kt.tool_generate_debrief()
-        elif name == "sync":
-            result = kt.tool_sync(args.get("flush_queue", True))
-        else:
-            result = {"error": f"Unknown tool: {name}"}
-        return json.dumps(result, default=str)
+        result = await tool.run(args)
+        if result.content:
+            return result.content[0].text
+        return json.dumps({"error": "No content returned"})
     except Exception as e:
         logger.exception("Tool execution error for %s", name)
         return json.dumps({"error": str(e)})
 
 
-async def _execute_tool(name: str, args: dict) -> str:
-    """Run a tool in a thread pool so blocking I/O doesn't freeze the event loop."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _run_tool, name, args)
+# ---------------------------------------------------------------------------
+# Chat history helpers
+# ---------------------------------------------------------------------------
 
-
-HISTORY_WINDOW = 20  # max prior messages to include (keeps token count bounded)
+HISTORY_WINDOW = 20
 
 
 def _build_openai_messages(history: list[dict], user_message: str) -> list[dict]:
     """Convert DB chat history + new user message into OpenAI messages format.
 
-    Only user and assistant text messages are included — tool call/response
-    details are not replayed since the final assistant text captures the result.
+    Only user and assistant text messages are replayed — tool call details are
+    not included since the final assistant text captures the result.
     """
     messages = [{"role": "system", "content": _build_system_prompt()}]
     recent = [m for m in history if m["role"] in ("user", "assistant")][-HISTORY_WINDOW:]
@@ -260,6 +138,10 @@ def _build_openai_messages(history: list[dict], user_message: str) -> list[dict]
     messages.append({"role": "user", "content": user_message})
     return messages
 
+
+# ---------------------------------------------------------------------------
+# Main chat entry point
+# ---------------------------------------------------------------------------
 
 async def chat(user_message: str) -> dict:
     """Send a user message and get the Keeper's response, executing tool calls as needed."""
@@ -283,13 +165,14 @@ async def chat(user_message: str) -> dict:
         conn.close()
 
     messages = _build_openai_messages(history, user_message)
+    openai_tools = await _get_openai_tools()
     tool_calls_made: list[str] = []
 
     for _ in range(MAX_TOOL_ITERATIONS):
         response = await client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
-            tools=TOOLS,
+            tools=openai_tools,
             tool_choice="auto",
         )
 
@@ -317,7 +200,6 @@ async def chat(user_message: str) -> dict:
 
             continue
 
-        # Final text response
         content = choice.message.content or ""
         conn = get_db()
         try:
@@ -329,7 +211,6 @@ async def chat(user_message: str) -> dict:
 
         return {"role": "assistant", "content": content, "tool_calls_made": tool_calls_made}
 
-    # Exhausted iterations — return whatever we have
     fallback = "I needed more steps to answer that. Could you try a simpler question?"
     conn = get_db()
     try:
@@ -339,6 +220,10 @@ async def chat(user_message: str) -> dict:
         conn.close()
     return {"role": "assistant", "content": fallback, "tool_calls_made": tool_calls_made}
 
+
+# ---------------------------------------------------------------------------
+# History management
+# ---------------------------------------------------------------------------
 
 def get_history() -> list[dict]:
     """Return the full chat history."""

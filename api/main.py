@@ -2,11 +2,16 @@
 FastAPI main application entry point for Codiak (React version).
 Runs alongside the existing Streamlit app on port 8000.
 """
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routers import tools, text_tools
 from api.routers.dragon_keeper import router as dk_router
+from api.routers.house import router as house_router
 
 app = FastAPI(
     title="Codiak API",
@@ -26,6 +31,7 @@ app.add_middleware(
 app.include_router(tools.router, prefix="/api")
 app.include_router(text_tools.router, prefix="/api/tools")
 app.include_router(dk_router, prefix="/api/dragon-keeper")
+app.include_router(house_router, prefix="/api")
 
 
 @app.on_event("startup")

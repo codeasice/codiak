@@ -384,6 +384,13 @@ def get_account_balances_tool() -> list[dict]:
 
 
 @mcp.tool()
+def get_balances() -> dict:
+    """Get all account balances and the current safe-to-spend amount in one call."""
+    from api.services.dragon_keeper.keeper_tools import tool_get_balances
+    return tool_get_balances()
+
+
+@mcp.tool()
 def get_account_balance_history_tool(account_id: Optional[str] = None) -> list[dict]:
     """
     Get balance snapshot history, newest first.

@@ -59,8 +59,49 @@ function isCreditType(type: string) {
   return ['creditCard', 'lineOfCredit'].includes(type)
 }
 
+/** Assets keep YNAB sign; debt/loan balances always display as negative. */
+function signedBalance(type: string, balance: number): number {
+  return isDebtType(type) ? -Math.abs(balance) : balance
+}
+
 function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 1) + '…' : s
+}
+
+function AccountOverviewTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: Record<string, unknown> }> }) {
+  if (!active || !payload?.length) return null
+  const entry = payload[0]?.payload as {
+    fullName: string
+    used: number
+    type: string
+    credit_limit: number | null
+    availableCredit: number | null
+  }
+  if (!entry) return null
+
+  return (
+    <div style={{
+      background: 'var(--bg-card)', border: '1px solid var(--border)',
+      borderRadius: '8px', fontSize: '12px', padding: '10px 12px',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+    }}>
+      <div style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 6 }}>
+        {entry.fullName}
+      </div>
+      <div style={{ color: 'var(--text-muted)' }}>
+        {TYPE_LABEL[entry.type] ?? entry.type}: {formatCurrency(entry.used)}
+      </div>
+      {entry.availableCredit != null && (
+        <div style={{
+          color: entry.availableCredit < 0 ? 'var(--danger)' : 'var(--text-muted)',
+          marginTop: 4,
+          fontWeight: entry.availableCredit < 0 ? 600 : 400,
+        }}>
+          Available Credit: {formatCurrency(entry.availableCredit)}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /* ---- Type filter chips ---- */
@@ -145,14 +186,16 @@ function OverviewChart({ accounts }: OverviewChartProps) {
     })
     .map(a => {
       const used = Math.abs(a.balance)
-      const available = isCreditType(a.type) && a.credit_limit != null
-        ? Math.max(0, a.credit_limit - used)
-        : 0
+      const availableCredit = isCreditType(a.type) && a.credit_limit != null
+        ? a.credit_limit - used
+        : null
+      const available = availableCredit != null ? Math.max(0, availableCredit) : 0
       return {
         name: truncate(a.name, 14),
         fullName: a.name,
         used,
         available,
+        availableCredit,
         type: a.type,
         interest_rate: a.interest_rate,
         credit_limit: a.credit_limit,
@@ -186,19 +229,7 @@ function OverviewChart({ accounts }: OverviewChartProps) {
             width={70}
             domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.15)]}
           />
-          <Tooltip
-            formatter={(v: number, name: string, props: any) => {
-              if (v === 0) return null as any
-              if (name === 'used') return [formatCurrency(v), TYPE_LABEL[props.payload.type] ?? props.payload.type]
-              if (name === 'available') return [formatCurrency(v), 'Available Credit']
-              return [formatCurrency(v), name]
-            }}
-            labelFormatter={(_: any, payload: any[]) => payload?.[0]?.payload?.fullName ?? ''}
-            contentStyle={{
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
-              borderRadius: '8px', fontSize: '12px',
-            }}
-          />
+          <Tooltip content={<AccountOverviewTooltip />} />
           {/* Used / balance portion — APR label here when no credit limit is set (available = 0) */}
           <Bar dataKey="used" stackId="a" radius={[0, 0, 0, 0]}>
             {data.map((entry, i) => (
@@ -392,7 +423,7 @@ function CreditLimitField({ account }: { account: Account }) {
 /* ---- Per-account card ---- */
 function AccountCard({ account }: { account: Account }) {
   const debt = isDebtType(account.type)
-  const displayBalance = debt ? Math.abs(account.balance) : account.balance
+  const displayBalance = signedBalance(account.type, account.balance)
   const color = typeColor(account.type)
 
   return (
@@ -420,7 +451,7 @@ function AccountCard({ account }: { account: Account }) {
           </div>
           {account.uncleared_balance !== 0 && (
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
-              {formatCurrency(Math.abs(account.uncleared_balance))} uncleared
+              {formatCurrency(signedBalance(account.type, account.uncleared_balance))} uncleared
             </div>
           )}
         </div>
@@ -468,6 +499,8 @@ function AccountCard({ account }: { account: Account }) {
                   background: 'var(--bg-card)', border: '1px solid var(--border)',
                   borderRadius: '8px', fontSize: '12px',
                 }}
+                labelStyle={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 4 }}
+                itemStyle={{ color: 'var(--text-muted)' }}
               />
               <Bar dataKey="debits" fill="#ef4444" opacity={0.85} radius={[2, 2, 0, 0]} />
               <Bar dataKey="credits" fill="#10b981" opacity={0.85} radius={[2, 2, 0, 0]} />
@@ -528,7 +561,7 @@ export default function AccountsPage() {
   const debitAccounts = filtered.filter(a => !isDebtType(a.type))
   const creditAccounts = filtered.filter(a => isDebtType(a.type))
   const totalDebit = debitAccounts.reduce((s, a) => s + a.balance, 0)
-  const totalDebt = creditAccounts.reduce((s, a) => s + Math.abs(a.balance), 0)
+  const totalDebt = creditAccounts.reduce((s, a) => s + signedBalance(a.type, a.balance), 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

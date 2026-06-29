@@ -22,6 +22,11 @@ from api.routers.dragon_keeper.investigate import router as investigate_router
 from api.routers.dragon_keeper.accounts_page import router as accounts_page_router
 from api.routers.dragon_keeper.payees import router as payees_router
 from api.routers.dragon_keeper.category_explorer import router as category_explorer_router
+from api.routers.dragon_keeper.purchases import router as purchases_router
+from api.routers.dragon_keeper.savings_opportunities import router as savings_opportunities_router
+from api.routers.dragon_keeper.selling import router as selling_router
+from api.routers.dragon_keeper.planning import router as planning_router
+from api.routers.dragon_keeper.budget import router as budget_router
 
 router = APIRouter()
 
@@ -48,6 +53,11 @@ router.include_router(investigate_router)
 router.include_router(accounts_page_router)
 router.include_router(payees_router)
 router.include_router(category_explorer_router)
+router.include_router(purchases_router)
+router.include_router(savings_opportunities_router)
+router.include_router(selling_router)
+router.include_router(planning_router)
+router.include_router(budget_router)
 
 
 @router.get("/health")

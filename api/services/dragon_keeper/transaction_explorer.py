@@ -16,11 +16,25 @@ def search_transactions(
     page: int = 1,
     page_size: int = 50,
     exact_payee: bool = False,
+    outflow_only: bool = False,
+    exclude_recurring: bool = False,
 ) -> dict:
     conn = get_db()
     try:
         where_parts = ["t.deleted = 0", "t.transfer_account_id IS NULL"]
         params: list = []
+
+        if outflow_only:
+            where_parts.append("t.amount < 0")
+            where_parts.append("t.payee_name NOT IN ('Starting Balance', 'Reconciliation Balance Adjustment')")
+        if exclude_recurring:
+            where_parts.append(
+                "t.payee_name NOT IN ("
+                "  SELECT payee_name FROM recurring_items WHERE status = 'active'"
+                "  UNION"
+                "  SELECT payee_name FROM recurring_item_aliases"
+                ")"
+            )
 
         if account_id:
             where_parts.append("t.account_id = ?")

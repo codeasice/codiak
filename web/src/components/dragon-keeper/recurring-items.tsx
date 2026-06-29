@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import {
   useRecurring,
   useDetectRecurring,
@@ -9,11 +9,15 @@ import {
   useArchiveRecurring,
   useUncancelRecurring,
   useDismissRecurring,
+  useUnlinkRecurringPayee,
   type RecurringItem,
   type CancelledChargeAlert,
 } from '../../hooks/dragon-keeper/use-recurring'
 import { useToast } from './toast'
 import PayeeName from './payee-name'
+import Sparkline from './sparkline'
+import LinkPayeeModal from './link-payee-modal'
+import DuplicateSuggestions from './duplicate-suggestions'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
@@ -21,7 +25,10 @@ function formatCurrency(amount: number): string {
 
 function formatDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00')
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function formatShortDate(iso: string): string {
@@ -38,6 +45,43 @@ function daysUntil(iso: string): number {
 
 function todayIso(): string {
   return new Date().toISOString().split('T')[0]
+}
+
+function formatCadence(cadence: RecurringItem['cadence'] | string): string {
+  switch (cadence) {
+    case 'biweekly': return 'Biweekly'
+    case 'monthly': return 'Monthly'
+    case 'semi_monthly': return '2× monthly'
+    case 'annual': return 'Annual'
+    default: return String(cadence).replace(/_/g, ' ')
+  }
+}
+
+type SortKey = 'name' | 'amount' | 'last_seen'
+type SortDir = 'asc' | 'desc'
+
+function sortRecurringItems(items: RecurringItem[], sortKey: SortKey, sortDir: SortDir): RecurringItem[] {
+  const list = [...items]
+  const dir = sortDir === 'asc' ? 1 : -1
+  list.sort((a, b) => {
+    switch (sortKey) {
+      case 'name':
+        return dir * a.payee_name.localeCompare(b.payee_name)
+      case 'amount':
+        return dir * (a.expected_amount - b.expected_amount)
+      case 'last_seen': {
+        const aDate = a.last_seen_date ?? ''
+        const bDate = b.last_seen_date ?? ''
+        if (!aDate && !bDate) return 0
+        if (!aDate) return 1
+        if (!bDate) return -1
+        return dir * aDate.localeCompare(bDate)
+      }
+      default:
+        return 0
+    }
+  })
+  return list
 }
 
 /* ---- Cancel Modal ---- */
@@ -181,11 +225,81 @@ function CancelledChargesAlert({ alerts, onPayeeNavigate }: {
   )
 }
 
+/* ---- Linked payees ---- */
+
+function LinkedPayees({ item, onUnlinked }: {
+  item: RecurringItem
+  onUnlinked: (message: string) => void
+}) {
+  const unlink = useUnlinkRecurringPayee()
+  const { toast } = useToast()
+  const [open, setOpen] = useState(false)
+
+  if (!item.linked_payees?.length) return null
+
+  return (
+    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', position: 'relative' }}>
+      Also: {item.linked_payees.join(', ')}{' '}
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          fontSize: '10px', fontWeight: 600, padding: '1px 6px',
+          borderRadius: '8px', border: '1px solid var(--border)',
+          background: 'var(--bg-hover)', color: 'var(--text-muted)', cursor: 'pointer',
+        }}
+      >
+        manage {open ? '▲' : '▼'}
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, marginTop: '4px', zIndex: 20,
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius)', padding: '6px', minWidth: '180px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+        }}>
+          {item.linked_payees.map(payee => (
+            <button
+              key={payee}
+              onClick={() => {
+                if (!confirm(`Unlink "${payee}"? It will become a separate subscription entry.`)) return
+                unlink.mutate(
+                  { itemId: item.id, payee_name: payee },
+                  {
+                    onSuccess: () => {
+                      onUnlinked(`Unlinked "${payee}"`)
+                      setOpen(false)
+                    },
+                    onError: () => toast('Failed to unlink payee', 'error'),
+                  },
+                )
+              }}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                padding: '6px 8px', fontSize: '11px',
+                border: 'none', background: 'transparent',
+                color: 'var(--text-primary)', cursor: 'pointer',
+                borderRadius: 'var(--radius)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+            >
+              Unlink {payee}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ---- Active Item Row ---- */
 
-function RecurringRow({ item, onPayeeNavigate }: {
+function RecurringRow({ item, linkCandidates, onPayeeNavigate, onLinkClick, onUnlinked }: {
   item: RecurringItem
+  linkCandidates: RecurringItem[]
   onPayeeNavigate?: (payee: string) => void
+  onLinkClick?: (item: RecurringItem) => void
+  onUnlinked: (message: string) => void
 }) {
   const confirm = useConfirmRecurring()
   const toggleSts = useToggleSts()
@@ -232,10 +346,10 @@ function RecurringRow({ item, onPayeeNavigate }: {
             onClick={onPayeeNavigate ? () => onPayeeNavigate(item.payee_name) : undefined}
           />
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-            {item.cadence === 'biweekly' ? 'Biweekly' : item.cadence === 'monthly' ? 'Monthly' : 'Annual'}
+            {formatCadence(item.cadence)}
             {item.occurrence_count > 0 && ` · ${item.occurrence_count} occurrences`}
-            {item.last_seen_date && ` · last seen ${formatShortDate(item.last_seen_date)}`}
           </div>
+          <LinkedPayees item={item} onUnlinked={onUnlinked} />
         </td>
         <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
@@ -289,6 +403,16 @@ function RecurringRow({ item, onPayeeNavigate }: {
             <>{item.type === 'income' ? '+' : '-'}{formatCurrency(item.expected_amount)}</>
           )}
         </td>
+        <td style={{ padding: '10px 12px' }}>
+          <Sparkline
+            points={(item.charge_history ?? []).map(c => ({ date: c.date, value: c.amount }))}
+            lastBarColor={item.type === 'income' ? 'var(--success)' : 'var(--accent)'}
+            barColor={item.type === 'income' ? 'var(--success)' : 'var(--text-muted)'}
+          />
+        </td>
+        <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: '12px' }}>
+          {item.last_seen_date ? formatDate(item.last_seen_date) : '—'}
+        </td>
         <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
           <div style={{ color: 'var(--text-primary)', fontSize: '13px' }}>
             {formatShortDate(item.next_expected_date)}
@@ -327,6 +451,18 @@ function RecurringRow({ item, onPayeeNavigate }: {
                 }}
               >
                 Confirm
+              </button>
+            )}
+            {item.type === 'expense' && linkCandidates.length > 0 && onLinkClick && (
+              <button
+                onClick={() => onLinkClick(item)}
+                style={{
+                  padding: '3px 10px', fontSize: '11px', fontWeight: 600,
+                  borderRadius: 'var(--radius)', border: '1px solid var(--border)',
+                  cursor: 'pointer', background: 'transparent', color: 'var(--text-muted)',
+                }}
+              >
+                Link
               </button>
             )}
             {item.is_subscription ? (
@@ -389,7 +525,7 @@ function CancelledRow({ item, onPayeeNavigate }: {
           onClick={onPayeeNavigate ? () => onPayeeNavigate(item.payee_name) : undefined}
         />
         <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-          {item.cadence === 'biweekly' ? 'Biweekly' : item.cadence === 'monthly' ? 'Monthly' : 'Annual'}
+          {formatCadence(item.cadence)}
         </div>
       </td>
       <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
@@ -447,12 +583,23 @@ function CancelledRow({ item, onPayeeNavigate }: {
 
 /* ---- Section Table (active items) ---- */
 
-function ItemSection({ title, items, badge, onPayeeNavigate }: {
+function ItemSection({ title, items, allActiveExpenses, badge, onPayeeNavigate, sortKey, sortDir, onSort, onLinkClick, onUnlinked }: {
   title: string
   items: RecurringItem[]
+  allActiveExpenses: RecurringItem[]
   badge?: string
   onPayeeNavigate?: (payee: string) => void
+  sortKey: SortKey
+  sortDir: SortDir
+  onSort: (key: SortKey) => void
+  onLinkClick?: (item: RecurringItem) => void
+  onUnlinked: (message: string) => void
 }) {
+  const sortedItems = useMemo(
+    () => sortRecurringItems(items, sortKey, sortDir),
+    [items, sortKey, sortDir],
+  )
+
   if (items.length === 0) return null
 
   return (
@@ -480,29 +627,52 @@ function ItemSection({ title, items, badge, onPayeeNavigate }: {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              {[
-                { label: 'Name' },
-                { label: 'Type' },
-                { label: 'Amount' },
-                { label: 'Next Date' },
-                { label: 'STS', title: 'Safe-to-Spend: include this item in your cash flow projection' },
-                { label: '' },
-              ].map(({ label, title }, i) => (
-                <th key={i} title={title} style={{
-                  padding: '8px 12px', fontSize: '10px', fontWeight: 700,
-                  textTransform: 'uppercase', letterSpacing: '0.5px',
-                  color: 'var(--text-muted)', textAlign: i === 2 ? 'right' : i === 4 ? 'center' : 'left',
-                  whiteSpace: 'nowrap',
-                  cursor: title ? 'help' : undefined,
-                }}>
-                  {label}
+              {([
+                { label: 'Name', key: 'name' as SortKey, align: 'left' },
+                { label: 'Type', key: null, align: 'left' },
+                { label: 'Amount', key: 'amount' as SortKey, align: 'right' },
+                { label: 'History', key: null, align: 'left', title: 'Recent charge amounts over time' },
+                { label: 'Last Seen', key: 'last_seen' as SortKey, align: 'left' },
+                { label: 'Next Date', key: null, align: 'left' },
+                { label: 'STS', key: null, align: 'center', title: 'Safe-to-Spend: include this item in your cash flow projection' },
+                { label: '', key: null, align: 'left' },
+              ]).map((col, i) => (
+                <th
+                  key={i}
+                  title={col.title}
+                  onClick={col.key ? () => onSort(col.key!) : undefined}
+                  style={{
+                    padding: '8px 12px', fontSize: '10px', fontWeight: 700,
+                    textTransform: 'uppercase', letterSpacing: '0.5px',
+                    color: sortKey === col.key ? 'var(--accent)' : 'var(--text-muted)',
+                    textAlign: col.align as 'left' | 'right' | 'center',
+                    whiteSpace: 'nowrap',
+                    cursor: col.key ? 'pointer' : col.title ? 'help' : 'default',
+                    userSelect: 'none',
+                  }}
+                >
+                  {col.label}
+                  {sortKey === col.key && (
+                    <span style={{ marginLeft: '4px', fontSize: '9px' }}>
+                      {sortDir === 'asc' ? '\u25B2' : '\u25BC'}
+                    </span>
+                  )}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {items.map(item => (
-              <RecurringRow key={item.id} item={item} onPayeeNavigate={onPayeeNavigate} />
+            {sortedItems.map(item => (
+              <RecurringRow
+                key={item.id}
+                item={item}
+                linkCandidates={allActiveExpenses.filter(
+                  c => c.id !== item.id && c.cadence === item.cadence,
+                )}
+                onPayeeNavigate={onPayeeNavigate}
+                onLinkClick={item.type === 'expense' ? onLinkClick : undefined}
+                onUnlinked={onUnlinked}
+              />
             ))}
           </tbody>
         </table>
@@ -585,6 +755,17 @@ export default function RecurringItems({ onPayeeNavigate }: RecurringItemsProps)
   const detect = useDetectRecurring()
   const { toast } = useToast()
   const detectStartRef = useRef<number>(0)
+  const [sortKey, setSortKey] = useState<SortKey>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir(key === 'amount' || key === 'last_seen' ? 'desc' : 'asc')
+    }
+  }
 
   const items = data?.items ?? []
   const active = items.filter(i => i.status === 'active')
@@ -593,9 +774,35 @@ export default function RecurringItems({ onPayeeNavigate }: RecurringItemsProps)
   const expenses = active.filter(i => i.type === 'expense')
   const unconfirmed = active.filter(i => !i.confirmed)
   const cancelledCharges = data?.cancelled_charges ?? []
+  const [linkAnchor, setLinkAnchor] = useState<RecurringItem | null>(null)
+  const [linkInitialSourceId, setLinkInitialSourceId] = useState<number | null>(null)
+
+  const handleUnlinked = (message: string) => toast(message, 'info')
+
+  const openLinkModal = (anchor: RecurringItem, sourceId: number | null = null) => {
+    setLinkAnchor(anchor)
+    setLinkInitialSourceId(sourceId)
+  }
+
+  const closeLinkModal = () => {
+    setLinkAnchor(null)
+    setLinkInitialSourceId(null)
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {linkAnchor && (
+        <LinkPayeeModal
+          anchorItem={linkAnchor}
+          candidates={expenses.filter(
+            c => c.id !== linkAnchor.id && c.cadence === linkAnchor.cadence,
+          )}
+          initialSourceId={linkInitialSourceId}
+          onClose={closeLinkModal}
+          onLinked={msg => toast(msg, 'success')}
+          onError={msg => toast(msg, 'error')}
+        />
+      )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
           Subscriptions & Bills
@@ -625,6 +832,11 @@ export default function RecurringItems({ onPayeeNavigate }: RecurringItemsProps)
 
       {/* Post-cancellation charge alerts */}
       <CancelledChargesAlert alerts={cancelledCharges} onPayeeNavigate={onPayeeNavigate} />
+
+      <DuplicateSuggestions
+        items={items}
+        onCombine={(anchor, sourceId) => openLinkModal(anchor, sourceId)}
+      />
 
       {/* Summary cards */}
       {data && (
@@ -725,23 +937,40 @@ export default function RecurringItems({ onPayeeNavigate }: RecurringItemsProps)
         <ItemSection
           title="Needs Confirmation"
           items={unconfirmed}
+          allActiveExpenses={expenses}
           badge={`${unconfirmed.length} new`}
           onPayeeNavigate={onPayeeNavigate}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={toggleSort}
+          onLinkClick={item => openLinkModal(item)}
+          onUnlinked={handleUnlinked}
         />
       )}
 
       <ItemSection
         title="Income"
         items={income.filter(i => i.confirmed)}
+        allActiveExpenses={expenses}
         badge={data ? `+${formatCurrency(data.monthly_income)}/mo` : undefined}
         onPayeeNavigate={onPayeeNavigate}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={toggleSort}
+        onUnlinked={handleUnlinked}
       />
 
       <ItemSection
         title="Bills & Subscriptions"
         items={expenses.filter(i => i.confirmed)}
+        allActiveExpenses={expenses}
         badge={data ? `-${formatCurrency(data.monthly_expenses)}/mo` : undefined}
         onPayeeNavigate={onPayeeNavigate}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={toggleSort}
+        onLinkClick={item => openLinkModal(item)}
+        onUnlinked={handleUnlinked}
       />
 
       <CancelledSection items={cancelled} onPayeeNavigate={onPayeeNavigate} />

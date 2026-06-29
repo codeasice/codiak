@@ -55,13 +55,14 @@ def get_category_timeline(category_id: str, periods: int = 12) -> dict:
 
 def get_spending_flow(month: str | None = None, min_amount: float = 10.0,
                       max_groups: int = 15, max_categories: int = 25,
-                      max_payees: int = 30) -> dict:
+                      max_payees: int = 30, account_id: str | None = None) -> dict:
     """Build Group → Category → Payee spending flow data for Sankey diagram.
 
     Args:
         month: YYYY-MM format, or None for current month
         min_amount: minimum flow amount to include
         max_groups/categories/payees: cap node counts for readability
+        account_id: optional account filter
     """
     conn = get_db()
     try:
@@ -89,7 +90,8 @@ def get_spending_flow(month: str | None = None, min_amount: float = 10.0,
             AND t.amount < 0 AND t.deleted = 0
             AND t.transfer_account_id IS NULL
             AND t.payee_name IS NOT NULL AND t.payee_name != ''
-        """, (date_start, date_end)).fetchall()
+            AND (? IS NULL OR t.account_id = ?)
+        """, (date_start, date_end, account_id, account_id)).fetchall()
 
         group_totals: dict[str, float] = defaultdict(float)
         category_totals: dict[str, float] = defaultdict(float)
@@ -166,8 +168,9 @@ def get_spending_flow(month: str | None = None, min_amount: float = 10.0,
             SELECT DISTINCT strftime('%Y-%m', date) as m
             FROM transactions
             WHERE amount < 0 AND deleted = 0 AND transfer_account_id IS NULL
+            AND (? IS NULL OR account_id = ?)
             ORDER BY m DESC LIMIT 24
-        """).fetchall()
+        """, (account_id, account_id)).fetchall()
         available_months = [r["m"] for r in month_rows]
 
         return {

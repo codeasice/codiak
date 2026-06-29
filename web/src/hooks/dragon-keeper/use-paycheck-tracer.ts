@@ -16,6 +16,7 @@ export interface PayPeriod {
   save_rate: number
   categories: CategorySpend[]
   is_current: boolean
+  is_projected?: boolean
   period_end_is_estimate: boolean
 }
 

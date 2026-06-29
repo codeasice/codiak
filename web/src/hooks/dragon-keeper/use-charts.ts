@@ -65,14 +65,15 @@ export function useCategoryTimeline(categoryId: string, periods: number = 12) {
   })
 }
 
-export function useSpendingFlow(month?: string, minAmount: number = 10, maxPayees: number = 30) {
+export function useSpendingFlow(month?: string, minAmount: number = 10, maxPayees: number = 30, accountId?: string) {
   const params = new URLSearchParams()
   if (month) params.set('month', month)
   params.set('min_amount', String(minAmount))
   params.set('max_payees', String(maxPayees))
+  if (accountId) params.set('account_id', accountId)
 
   return useQuery<SpendingFlowData>({
-    queryKey: ['dragon-keeper', 'charts', 'spending-flow', month, minAmount, maxPayees],
+    queryKey: ['dragon-keeper', 'charts', 'spending-flow', month, minAmount, maxPayees, accountId],
     queryFn: () => apiFetch(`/dragon-keeper/charts/spending-flow?${params}`),
     staleTime: 5 * 60 * 1000,
   })

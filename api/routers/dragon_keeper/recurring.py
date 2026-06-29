@@ -1,8 +1,21 @@
 """Recurring items (subscriptions, bills, paychecks) API endpoints."""
-from fastapi import APIRouter
+from urllib.parse import unquote
+
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from api.models.dragon_keeper.db import get_db, _now_utc
 from api.services.dragon_keeper.recurring_detection import detect_recurring_transactions
+from api.services.dragon_keeper.recurring_linking import (
+    CHARGE_HISTORY_LIMIT,
+    find_duplicate_suggestions,
+    get_combined_charge_history,
+    link_by_payee_name,
+    link_recurring_items,
+    load_aliases_by_recurring_id,
+    preview_link,
+    preview_link_by_payee_name,
+    unlink_payee,
+)
 
 router = APIRouter()
 
@@ -18,18 +31,23 @@ def list_recurring():
     try:
         rows = conn.execute("""
             SELECT id, payee_name, type, cadence, expected_amount,
-                   expected_day, next_expected_date, confirmed, include_in_sts,
+                   expected_day, expected_day_2, next_expected_date, confirmed, include_in_sts,
                    last_seen_date, avg_amount, occurrence_count, cancelled_date,
                    is_subscription, status, created_at, updated_at
             FROM recurring_items
             ORDER BY type DESC, next_expected_date
         """).fetchall()
 
+        aliases_by_id = load_aliases_by_recurring_id(conn)
         items = [dict(r) for r in rows]
         for item in items:
             item["confirmed"] = bool(item["confirmed"])
             item["include_in_sts"] = bool(item["include_in_sts"])
             item["is_subscription"] = bool(item["is_subscription"])
+            linked = aliases_by_id.get(item["id"], [])
+            item["linked_payees"] = linked
+            item["all_payee_names"] = [item["payee_name"], *linked]
+            item["charge_history"] = get_combined_charge_history(conn, item["all_payee_names"])
 
         active = [i for i in items if i["status"] == "active"]
         confirmed = [i for i in active if i["confirmed"]]
@@ -38,6 +56,8 @@ def list_recurring():
             amt = item["expected_amount"]
             if item["cadence"] == "biweekly":
                 return amt * 26 / 12
+            elif item["cadence"] == "semi_monthly":
+                return amt * 2
             elif item["cadence"] == "annual":
                 return amt / 12
             return amt
@@ -46,19 +66,20 @@ def list_recurring():
         expense_total = sum(_to_monthly(i) for i in confirmed if i["type"] == "expense")
         annual_expense_total = sum(i["expected_amount"] for i in confirmed if i["type"] == "expense" and i["cadence"] == "annual")
 
-        # Only alert on post-cancellation charges for true subscriptions
         cancelled_charges = []
         for item in items:
             if not item["is_subscription"] or item["status"] != "cancelled" or not item["cancelled_date"]:
                 continue
-            charge_rows = conn.execute("""
-                SELECT date, amount, id
+            payee_names = item["all_payee_names"]
+            placeholders = ",".join("?" * len(payee_names))
+            charge_rows = conn.execute(f"""
+                SELECT date, amount, id, payee_name
                 FROM transactions
-                WHERE LOWER(payee_name) = LOWER(?)
+                WHERE LOWER(payee_name) IN ({placeholders})
                   AND date > ?
                   AND deleted = 0
                 ORDER BY date DESC
-            """, (item["payee_name"], item["cancelled_date"])).fetchall()
+            """, (*[n.lower() for n in payee_names], item["cancelled_date"])).fetchall()
             if charge_rows:
                 cancelled_charges.append({
                     "recurring_id": item["id"],
@@ -226,3 +247,52 @@ def update_item(item_id: int, req: UpdateRecurringRequest):
         return {"status": "updated", "id": item_id}
     finally:
         conn.close()
+
+
+class LinkRecurringRequest(BaseModel):
+    source_recurring_id: int | None = None
+    payee_name: str | None = None
+    canonical_recurring_id: int | None = None
+    force_amount: bool = False
+
+
+@router.get("/recurring/duplicate-suggestions")
+def duplicate_suggestions():
+    return {"suggestions": find_duplicate_suggestions()}
+
+
+@router.get("/recurring/{item_id}/link/preview")
+def link_preview(
+    item_id: int,
+    source_recurring_id: int | None = None,
+    payee_name: str | None = None,
+    canonical_recurring_id: int | None = None,
+):
+    if payee_name:
+        return preview_link_by_payee_name(item_id, payee_name)
+    if source_recurring_id is None:
+        raise HTTPException(status_code=400, detail="source_recurring_id or payee_name is required")
+    return preview_link(item_id, source_recurring_id, canonical_recurring_id)
+
+
+@router.post("/recurring/{item_id}/link")
+def link_item(item_id: int, req: LinkRecurringRequest):
+    if req.payee_name:
+        return link_by_payee_name(item_id, req.payee_name, req.force_amount)
+    if req.source_recurring_id is None:
+        raise HTTPException(status_code=400, detail="source_recurring_id or payee_name is required")
+    if req.canonical_recurring_id is None:
+        raise HTTPException(status_code=400, detail="canonical_recurring_id is required when linking subscriptions")
+    if req.canonical_recurring_id not in (item_id, req.source_recurring_id):
+        raise HTTPException(status_code=400, detail="canonical_recurring_id must be one of the two items")
+    return link_recurring_items(
+        item_id,
+        req.source_recurring_id,
+        req.canonical_recurring_id,
+        req.force_amount,
+    )
+
+
+@router.delete("/recurring/{item_id}/link/{payee_name:path}")
+def unlink_item_payee(item_id: int, payee_name: str):
+    return unlink_payee(item_id, unquote(payee_name))

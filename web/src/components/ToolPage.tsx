@@ -13,6 +13,7 @@ import HomeAutomationCategorizer from '../tools/HomeAutomationCategorizer'
 import ObsidianNotePlacement from '../tools/ObsidianNotePlacement'
 import BmadProjectStatus from '../tools/BmadProjectStatus'
 import DragonKeeper from '../tools/DragonKeeper'
+import WireframeVisualizer from '../tools/WireframeVisualizer'
 
 interface ToolMeta {
     id: string
@@ -21,7 +22,7 @@ interface ToolMeta {
     category: string
 }
 
-type ToolComponent = React.ComponentType & { HeaderExtra?: React.ComponentType }
+type ToolComponent = React.ComponentType & { HeaderExtra?: React.ComponentType; fullBleed?: boolean }
 
 // Map tool IDs to their React components
 const TOOL_COMPONENTS: Record<string, ToolComponent> = {
@@ -35,6 +36,7 @@ const TOOL_COMPONENTS: Record<string, ToolComponent> = {
     ObsidianNotePlacement,
     BmadProjectStatus,
     DragonKeeper,
+    WireframeVisualizer,
 }
 
 export default function ToolPage() {
@@ -48,13 +50,14 @@ export default function ToolPage() {
     const tool = tools.find(t => t.id === toolId)
     const ToolComponent: ToolComponent | undefined = toolId ? TOOL_COMPONENTS[toolId] : undefined
     const HeaderExtra = ToolComponent?.HeaderExtra
+    const fullBleed = ToolComponent?.fullBleed
 
     if (!tool && tools.length > 0) {
         return <div className="error-box">Tool "{toolId}" not found.</div>
     }
 
     return (
-        <div className="tool-page">
+        <div className={fullBleed ? 'tool-page tool-page-full-bleed' : 'tool-page'}>
             <div className="tool-page-header">
                 {tool && (
                     <>

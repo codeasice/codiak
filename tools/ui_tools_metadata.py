@@ -51,43 +51,18 @@ UI_TOOLS_METADATA = [
         "requires_vault_path": True
     },
     {
-        "id": "Budgets",
-        "short_title": "Budgets",
-        "long_title": "YNAB Budgets & Categories",
-        "category": "Financial/YNAB",
-        "description": "View your YNAB budgets and categories from the database. See budget information, category structure, and financial details.",
-        "requires_vault_path": False
-    },
-    {
-        "id": "Transactions",
-        "short_title": "Transactions",
-        "long_title": "YNAB Transactions",
-        "category": "Financial/YNAB",
-        "description": "View your YNAB transactions from the database. See transaction details, summary metrics, and filtering options.",
-        "requires_vault_path": False
-    },
-    {
         "id": "YnabCreateTransaction",
         "short_title": "YNAB Create Transaction",
         "long_title": "Create a New YNAB Transaction",
-        "category": "Financial/YNAB",
+        "category": "Finance",
         "description": "Create a new transaction in a selected budget and account via the YNAB API.",
         "requires_vault_path": False
     },
     {
-        "id": "YnabUnknownCategoryTransactions",
-        "short_title": "YNAB Unknown Category Txns",
-        "long_title": "YNAB Transactions with Unknown Category",
-        "category": "Financial/YNAB",
-        "description": "Show transactions from a YNAB budget where the category is unknown (category_id not found).",
-        "requires_vault_path": False
-    },
-
-    {
         "id": "YnabRules",
         "short_title": "YNAB Rules Manager",
         "long_title": "YNAB Categorization Rules Manager",
-        "category": "Financial/YNAB",
+        "category": "Finance",
         "description": "Create and manage categorization rules for automatic transaction categorization.",
         "requires_vault_path": False
     },
@@ -95,56 +70,16 @@ UI_TOOLS_METADATA = [
         "id": "YnabApplyRules",
         "short_title": "YNAB Auto-Categorize",
         "long_title": "YNAB Apply Categorization Rules",
-        "category": "Financial/YNAB",
+        "category": "Finance",
         "description": "Find transactions that match your categorization rules and apply them automatically.",
-        "requires_vault_path": False
-    },
-    {
-        "id": "YnabListCategories",
-        "short_title": "YNAB List Categories",
-        "long_title": "YNAB List All Categories",
-        "category": "Financial/YNAB",
-        "description": "View all categories in your YNAB budget with their IDs and structure.",
-        "requires_vault_path": False
-    },
-    {
-        "id": "YnabMapUncategorized",
-        "short_title": "YNAB AI Categorizer",
-        "long_title": "YNAB AI-Assisted Transaction Categorization",
-        "category": "Financial/YNAB",
-        "description": "Use AI assistance to categorize transactions that don't match your rules.",
-        "requires_vault_path": False
-    },
-    {
-        "id": "YnabAlluvialDiagram",
-        "short_title": "YNAB Money Flow",
-        "long_title": "YNAB Money Flow Visualization",
-        "category": "Financial/YNAB",
-        "description": "Visualize money flow from payees to categories for a selected month using an interactive alluvial diagram.",
         "requires_vault_path": False
     },
     {
         "id": "YnabExportData",
         "short_title": "YNAB Export Data",
         "long_title": "YNAB Data Export Tool",
-        "category": "Financial/YNAB",
+        "category": "Finance",
         "description": "Export all YNAB data (budgets, categories, transactions, accounts) to a JSON file for offline analysis.",
-        "requires_vault_path": False
-    },
-    {
-        "id": "YnabPayeeManager",
-        "short_title": "YNAB Payee Manager",
-        "long_title": "YNAB Payee Manager & Analyzer",
-        "category": "Financial/YNAB",
-        "description": "Browse and analyze payees with filtering capabilities. View transaction history and category breakdowns for each payee.",
-        "requires_vault_path": False
-    },
-    {
-        "id": "YnabSpendGraph",
-        "short_title": "YNAB Spend Graph",
-        "long_title": "YNAB Daily Spend Graph",
-        "category": "Financial/YNAB",
-        "description": "Display a graph of daily YNAB transaction spend for select categories across a selected date range.",
         "requires_vault_path": False
     },
     {
@@ -300,18 +235,10 @@ UI_TOOLS_METADATA = [
         "requires_vault_path": False
     },
     {
-        "id": "AccountDashboard",
-        "short_title": "Account Dashboard",
-        "long_title": "Financial Account Dashboard",
-        "category": "Financial/YNAB",
-        "description": "View your financial accounts organized by type and hierarchy. See account balances, totals, and account structure.",
-        "requires_vault_path": False
-    },
-    {
         "id": "AccountManager",
         "short_title": "Account Manager",
         "long_title": "Account Management Tool",
-        "category": "Financial/YNAB",
+        "category": "Finance",
         "description": "List, edit, and manage your financial accounts. Update account details, hierarchy, and financial information.",
         "requires_vault_path": False
     },
@@ -319,7 +246,7 @@ UI_TOOLS_METADATA = [
         "id": "CreditCardInterest",
         "short_title": "Credit Card Interest",
         "long_title": "Credit Card Daily Interest Calculator",
-        "category": "Financial/YNAB",
+        "category": "Finance",
         "description": "Calculate daily interest costs for credit card balances based on APRs. See how much interest you're paying each day.",
         "requires_vault_path": False
     },
@@ -327,7 +254,7 @@ UI_TOOLS_METADATA = [
         "id": "AccountLinkManager",
         "short_title": "Account Link Manager",
         "long_title": "Account Link Manager",
-        "category": "Financial/YNAB",
+        "category": "Finance",
         "description": "Manage links between your local accounts and YNAB accounts. View, add, and delete account connections for data synchronization.",
         "requires_vault_path": False
     },
@@ -361,6 +288,14 @@ UI_TOOLS_METADATA = [
         "long_title": "Dragon Keeper Financial Dashboard",
         "category": "Finance",
         "description": "Your personal financial command center. Import YNAB data, track spending, and chat with the Keeper agent.",
+        "requires_vault_path": False
+    },
+    {
+        "id": "WireframeVisualizer",
+        "short_title": "House Visualizer",
+        "long_title": "Wireframe Building Visualizer",
+        "category": "Home",
+        "description": "Interactive 3D wireframe first-person walkthrough of the house floor plan with room navigation, hotspots, and a minimap.",
         "requires_vault_path": False
     },
 ]

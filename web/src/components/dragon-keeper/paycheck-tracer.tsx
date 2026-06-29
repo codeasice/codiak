@@ -15,137 +15,194 @@ function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, otherIso?: string): string {
   const d = new Date(iso + 'T00:00:00')
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const other = otherIso ? new Date(otherIso + 'T00:00:00') : null
+  const showYear = d.getFullYear() !== new Date().getFullYear()
+    || (other !== null && other.getFullYear() !== d.getFullYear())
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(showYear ? { year: 'numeric' } : {}),
+  })
 }
 
-function addCadenceDays(dateStr: string, cadence: string): string {
-  const d = new Date(dateStr + 'T00:00:00')
-  if (cadence === 'biweekly') d.setDate(d.getDate() + 14)
-  else if (cadence === 'monthly') d.setMonth(d.getMonth() + 1)
-  else d.setFullYear(d.getFullYear() + 1)
-  return d.toISOString().split('T')[0]
+/* ---- Pay Period Panel (current + next) ---- */
+
+function periodRangeSubtitle(start: string, end: string): string {
+  return `${formatDate(start, end)} — ${formatDate(end, start)} (est.)`
 }
 
-/* ---- Remaining Bills Panel ---- */
-
-function RemainingBillsPanel({ bills, nextPaycheckDate, account, onPayeeNavigate }: {
+function PayPeriodPanel({
+  title,
+  badge,
+  variant,
+  periodStart,
+  periodEnd,
+  depositedLabel,
+  depositedAmount,
+  secondaryLabel,
+  secondaryAmount,
+  bills,
+  footerBeforeLabel,
+  footerBeforeAmount,
+  onPayeeNavigate,
+}: {
+  title: string
+  badge: string
+  variant: 'current' | 'projected'
+  periodStart: string
+  periodEnd: string
+  depositedLabel: string
+  depositedAmount: number
+  secondaryLabel?: string
+  secondaryAmount?: number
   bills: RecurringItem[]
-  nextPaycheckDate: string
-  account?: Account
+  footerBeforeLabel: string
+  footerBeforeAmount: number
   onPayeeNavigate?: (payee: string) => void
 }) {
   const [expanded, setExpanded] = useState(true)
   const today = new Date().toISOString().split('T')[0]
   const total = bills.reduce((s, b) => s + b.expected_amount, 0)
-  const afterBills = account ? account.balance - total : null
-
-  if (bills.length === 0) return null
+  const afterBills = footerBeforeAmount - total
+  const accent = variant === 'current' ? 'var(--accent)' : 'var(--text-muted)'
 
   return (
     <div style={{
-      background: 'var(--bg-card)', border: '1px solid var(--border)',
+      background: 'var(--bg-card)',
+      border: '1px dashed var(--border)',
+      borderLeft: `3px solid ${accent}`,
       borderRadius: 'var(--radius-lg)', overflow: 'hidden',
     }}>
       <div
         onClick={() => setExpanded(!expanded)}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '14px 20px', cursor: 'pointer',
+          padding: '14px 20px', cursor: 'pointer', gap: '12px', flexWrap: 'wrap',
         }}
         onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>
-            Remaining This Period
-          </span>
-          <span style={{
-            padding: '1px 7px', fontSize: '10px', fontWeight: 700, borderRadius: '10px',
-            background: 'color-mix(in srgb, var(--danger) 12%, transparent)',
-            color: 'var(--danger)',
-          }}>
-            {bills.length}
-          </span>
+        <div style={{ flex: '1 1 200px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>
+              {title}
+            </span>
+            <span style={{
+              padding: '1px 7px', fontSize: '10px', fontWeight: 600, borderRadius: '10px',
+              background: `color-mix(in srgb, ${accent} 15%, transparent)`,
+              color: accent,
+            }}>
+              {badge}
+            </span>
+            {bills.length > 0 && (
+              <span style={{
+                padding: '1px 7px', fontSize: '10px', fontWeight: 700, borderRadius: '10px',
+                background: 'color-mix(in srgb, var(--danger) 12%, transparent)',
+                color: 'var(--danger)',
+              }}>
+                {bills.length} bill{bills.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+            {periodRangeSubtitle(periodStart, periodEnd)}
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--danger)', fontVariantNumeric: 'tabular-nums' }}>
-            -{formatCurrency(total)}
-          </span>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{depositedLabel}</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+              {formatCurrency(depositedAmount)}
+            </div>
+          </div>
+          {secondaryLabel !== undefined && secondaryAmount !== undefined && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{secondaryLabel}</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                {formatCurrency(secondaryAmount)}
+              </div>
+            </div>
+          )}
           <span style={{ fontSize: '11px', color: 'var(--text-muted)', transition: 'transform 0.2s', transform: expanded ? 'rotate(180deg)' : 'none' }}>▼</span>
         </div>
       </div>
 
       {expanded && (
         <div style={{ borderTop: '1px solid var(--border)' }}>
-          <div style={{ padding: '4px 20px 8px', fontSize: '11px', color: 'var(--text-muted)' }}>
-            Until estimated next paycheck · {formatDate(nextPaycheckDate)}
-          </div>
-          {bills.map(bill => {
-            const days = Math.round(
-              (new Date(bill.next_expected_date + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime())
-              / 86400000
-            )
-            const isOverdue = days < 0
-            const isDueToday = days === 0
-            const daysColor = isOverdue ? 'var(--danger)' : isDueToday || days <= 2 ? 'var(--warning, #f59e0b)' : 'var(--text-muted)'
-            const dueLabel = isOverdue
-              ? `${Math.abs(days)}d overdue`
-              : isDueToday
-              ? 'Due today'
-              : `${formatDate(bill.next_expected_date)} · in ${days}d`
-            return (
-              <div key={bill.id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '9px 20px', borderBottom: '1px solid var(--border)',
-              }}>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 500 }}>
-                    <PayeeName
-                      payeeName={bill.payee_name}
-                      onClick={onPayeeNavigate ? () => onPayeeNavigate(bill.payee_name) : undefined}
-                    />
-                  </div>
-                  <div style={{ fontSize: '11px', color: daysColor, marginTop: '1px', fontWeight: isOverdue || isDueToday ? 600 : 400 }}>
-                    {dueLabel}
-                  </div>
-                </div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--danger)', fontVariantNumeric: 'tabular-nums' }}>
-                  -{formatCurrency(bill.expected_amount)}
-                </span>
-              </div>
-            )
-          })}
-
-          {account && afterBills !== null && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '12px',
-              padding: '12px 20px',
-              background: 'color-mix(in srgb, var(--bg-hover) 60%, transparent)',
-            }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>
-                  {account.name}
-                </div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', marginTop: '2px' }}>
-                  {formatCurrency(account.balance)}
-                </div>
-              </div>
-              <div style={{ fontSize: '16px', color: 'var(--text-muted)', flexShrink: 0 }}>→</div>
-              <div style={{ flex: 1, textAlign: 'right' }}>
-                <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>
-                  After Bills
-                </div>
-                <div style={{
-                  fontSize: '16px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', marginTop: '2px',
-                  color: afterBills >= 0 ? 'var(--success)' : 'var(--danger)',
+          {bills.length === 0 ? (
+            <div style={{ padding: '12px 20px', fontSize: '12px', color: 'var(--text-muted)' }}>
+              No scheduled bills in this window
+            </div>
+          ) : (
+            bills.map(bill => {
+              const days = Math.round(
+                (new Date(bill.next_expected_date + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime())
+                / 86400000
+              )
+              const isOverdue = days < 0
+              const isDueToday = days === 0
+              const daysColor = isOverdue ? 'var(--danger)' : isDueToday || days <= 2 ? 'var(--warning, #f59e0b)' : 'var(--text-muted)'
+              const dueLabel = isOverdue
+                ? `${Math.abs(days)}d overdue`
+                : isDueToday
+                ? 'Due today'
+                : `${formatDate(bill.next_expected_date)} · in ${days}d`
+              return (
+                <div key={bill.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '9px 20px', borderBottom: '1px solid var(--border)',
                 }}>
-                  {formatCurrency(afterBills)}
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 500 }}>
+                      <PayeeName
+                        payeeName={bill.payee_name}
+                        onClick={onPayeeNavigate ? () => onPayeeNavigate(bill.payee_name) : undefined}
+                      />
+                    </div>
+                    <div style={{ fontSize: '11px', color: daysColor, marginTop: '1px', fontWeight: isOverdue || isDueToday ? 600 : 400 }}>
+                      {dueLabel}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--danger)', fontVariantNumeric: 'tabular-nums' }}>
+                    -{formatCurrency(bill.expected_amount)}
+                  </span>
                 </div>
+              )
+            })
+          )}
+
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '12px',
+            padding: '12px 20px',
+            background: 'color-mix(in srgb, var(--bg-hover) 60%, transparent)',
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>
+                {footerBeforeLabel}
+              </div>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', marginTop: '2px' }}>
+                {formatCurrency(footerBeforeAmount)}
               </div>
             </div>
-          )}
+            {bills.length > 0 && (
+              <>
+                <div style={{ fontSize: '16px', color: 'var(--text-muted)', flexShrink: 0 }}>→</div>
+                <div style={{ flex: 1, textAlign: 'right' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>
+                    After Bills
+                  </div>
+                  <div style={{
+                    fontSize: '16px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', marginTop: '2px',
+                    color: afterBills >= 0 ? 'var(--success)' : 'var(--danger)',
+                  }}>
+                    {formatCurrency(afterBills)}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -341,7 +398,7 @@ function PeriodCard({ period, takeHome, onPayeeNavigate, onNavigateToExplorer }:
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
           <div>
             <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-              {formatDate(period.period_start)} — {formatDate(period.period_end)}{period.period_end_is_estimate ? ' (est.)' : ''}
+              {formatDate(period.period_start, period.period_end)} — {formatDate(period.period_end, period.period_start)}{period.period_end_is_estimate ? ' (est.)' : ''}
             </span>
             {period.is_current && (
               <span style={{
@@ -463,19 +520,14 @@ export default function PaycheckTracer({ onPayeeNavigate, onNavigateToExplorer }
     [accountsData]
   )
 
-  const fallbackAccountId = useMemo(() =>
-    accounts.find(a => a.type === 'checking')?.id ?? accounts[0]?.id,
-    [accounts]
-  )
-
-  // Initialise from persisted setting once accounts + settings are loaded
+  // Initialise from persisted setting only — don't auto-pick an account for the API
   useEffect(() => {
     if (selectedAccountId !== undefined) return
-    if (!settings || accounts.length === 0) return
-    setSelectedAccountId(settings.paycheck_account_id || fallbackAccountId || '')
-  }, [settings, accounts, fallbackAccountId, selectedAccountId])
+    if (!settings) return
+    setSelectedAccountId(settings.paycheck_account_id || '')
+  }, [settings, selectedAccountId])
 
-  const effectiveAccountId = selectedAccountId || fallbackAccountId
+  const effectiveAccountId = selectedAccountId || settings?.paycheck_account_id || undefined
 
   const handleAccountChange = (id: string) => {
     setSelectedAccountId(id)
@@ -495,28 +547,34 @@ export default function PaycheckTracer({ onPayeeNavigate, onNavigateToExplorer }
 
   const selectedAccount = accounts.find(a => a.id === effectiveAccountId)
 
-  const lastPeriod = periods[periods.length - 1]
-  // Current active period: period_start = last paycheck, period_end = estimated next
-  // Fall back to computing estimate from last complete period if backend didn't add one
-  const currentPeriodStart = lastPeriod?.is_current
-    ? lastPeriod.period_start
-    : lastPeriod?.period_end ?? null
-  const nextPaycheckEstimate = lastPeriod?.is_current
-    ? lastPeriod.period_end
-    : (lastPeriod?.period_end && source ? addCadenceDays(lastPeriod.period_end, source.cadence) : null)
+  const currentPeriod = periods.find(p => p.is_current)
+  const projectedPeriod = periods.find(p => p.is_projected)
 
   const remainingBills = useMemo(() => {
-    if (!currentPeriodStart || !nextPaycheckEstimate) return []
+    if (!currentPeriod) return []
     return (recurringData?.items ?? [])
       .filter(item =>
         item.type === 'expense' &&
         !item.cancelled_date &&
         item.confirmed &&
-        item.next_expected_date >= currentPeriodStart &&
-        item.next_expected_date <= nextPaycheckEstimate
+        item.next_expected_date >= currentPeriod.period_start &&
+        item.next_expected_date < currentPeriod.period_end
       )
       .sort((a, b) => a.next_expected_date.localeCompare(b.next_expected_date))
-  }, [recurringData, currentPeriodStart, nextPaycheckEstimate])
+  }, [recurringData, currentPeriod])
+
+  const nextPeriodBills = useMemo(() => {
+    if (!projectedPeriod) return []
+    return (recurringData?.items ?? [])
+      .filter(item =>
+        item.type === 'expense' &&
+        !item.cancelled_date &&
+        item.confirmed &&
+        item.next_expected_date >= projectedPeriod.period_start &&
+        item.next_expected_date < projectedPeriod.period_end
+      )
+      .sort((a, b) => a.next_expected_date.localeCompare(b.next_expected_date))
+  }, [recurringData, projectedPeriod])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -641,12 +699,36 @@ export default function PaycheckTracer({ onPayeeNavigate, onNavigateToExplorer }
       {/* Paycheck breakdown panel */}
       {config && <PaycheckBreakdownPanel config={config} />}
 
-      {/* Remaining bills for active period */}
-      {nextPaycheckEstimate && remainingBills.length > 0 && (
-        <RemainingBillsPanel
+      {/* Current + next pay period projections */}
+      {currentPeriod && (
+        <PayPeriodPanel
+          title="Current Pay Period"
+          badge="Current"
+          variant="current"
+          periodStart={currentPeriod.period_start}
+          periodEnd={currentPeriod.period_end}
+          depositedLabel="Deposited"
+          depositedAmount={currentPeriod.paycheck_amount}
+          secondaryLabel="Spent so far"
+          secondaryAmount={currentPeriod.total_spent}
           bills={remainingBills}
-          nextPaycheckDate={nextPaycheckEstimate}
-          account={selectedAccount}
+          footerBeforeLabel="Paycheck Remaining"
+          footerBeforeAmount={currentPeriod.paycheck_amount - currentPeriod.total_spent}
+          onPayeeNavigate={onPayeeNavigate}
+        />
+      )}
+      {projectedPeriod && (
+        <PayPeriodPanel
+          title="Next Pay Period"
+          badge="Projected"
+          variant="projected"
+          periodStart={projectedPeriod.period_start}
+          periodEnd={projectedPeriod.period_end}
+          depositedLabel="Expected Deposit"
+          depositedAmount={projectedPeriod.paycheck_amount}
+          bills={nextPeriodBills}
+          footerBeforeLabel="Expected Deposit"
+          footerBeforeAmount={projectedPeriod.paycheck_amount}
           onPayeeNavigate={onPayeeNavigate}
         />
       )}
@@ -673,7 +755,7 @@ export default function PaycheckTracer({ onPayeeNavigate, onNavigateToExplorer }
         </div>
       )}
 
-      {[...periods].reverse().map((p) => (
+      {[...periods].filter(p => !p.is_projected && !p.is_current).reverse().map((p) => (
         <PeriodCard
           key={p.period_start}
           period={p}

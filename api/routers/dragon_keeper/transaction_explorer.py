@@ -25,6 +25,8 @@ def list_transactions(
     sort_dir: str = Query("desc", description="Sort direction: asc or desc"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, description="Results per page"),
+    outflow_only: bool = Query(False, description="Only include outflows (negative amounts)"),
+    exclude_recurring: bool = Query(False, description="Exclude known recurring/subscription payees"),
 ):
     return search_transactions(
         payee=payee,
@@ -40,6 +42,8 @@ def list_transactions(
         page=page,
         page_size=page_size,
         exact_payee=exact_payee,
+        outflow_only=outflow_only,
+        exclude_recurring=exclude_recurring,
     )
 
 

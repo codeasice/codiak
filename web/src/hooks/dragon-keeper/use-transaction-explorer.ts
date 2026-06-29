@@ -36,6 +36,8 @@ export interface TransactionFilters {
   sort_dir?: string
   page?: number
   page_size?: number
+  outflow_only?: boolean
+  exclude_recurring?: boolean
 }
 
 export interface CategoryBreakdownItem {
@@ -71,6 +73,8 @@ function buildQueryString(filters: TransactionFilters): string {
   if (filters.sort_dir) params.set('sort_dir', filters.sort_dir)
   if (filters.page) params.set('page', String(filters.page))
   if (filters.page_size) params.set('page_size', String(filters.page_size))
+  if (filters.outflow_only) params.set('outflow_only', 'true')
+  if (filters.exclude_recurring) params.set('exclude_recurring', 'true')
   const qs = params.toString()
   return qs ? `?${qs}` : ''
 }

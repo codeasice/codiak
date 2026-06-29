@@ -1,4 +1,5 @@
 """Cash flow projection engine — projects forward N days to find true safe-to-spend."""
+import calendar
 import logging
 from datetime import datetime, timedelta
 from api.models.dragon_keeper.db import get_db, get_setting
@@ -55,7 +56,7 @@ def project_cash_flow() -> dict:
 
         recurring_items = conn.execute("""
             SELECT id, payee_name, type, cadence, expected_amount,
-                   expected_day, next_expected_date, confirmed, include_in_sts
+                   expected_day, expected_day_2, next_expected_date, confirmed, include_in_sts
             FROM recurring_items
             WHERE include_in_sts = 1
             ORDER BY next_expected_date
@@ -92,6 +93,19 @@ def project_cash_flow() -> dict:
                     if current >= today:
                         _add_event(current)
                     current += timedelta(days=14)
+            elif cadence == "semi_monthly":
+                day_early = item_dict["expected_day"]
+                day_late = item_dict["expected_day_2"] or item_dict["expected_day"]
+                y, m = today.year, today.month
+                for offset in range(0, projection_days // 15 + 3):
+                    month = m + offset
+                    year = y + (month - 1) // 12
+                    month = ((month - 1) % 12) + 1
+                    for day in (day_early, day_late):
+                        last_day = calendar.monthrange(year, month)[1]
+                        d = datetime(year, month, min(day, last_day)).date()
+                        if today <= d <= end_date:
+                            _add_event(d)
             elif cadence == "monthly":
                 current = next_date
                 while current <= end_date:

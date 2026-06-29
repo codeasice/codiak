@@ -24,5 +24,6 @@ def spending_flow(
     month: str | None = Query(None, description="YYYY-MM format"),
     min_amount: float = Query(10.0, ge=0),
     max_payees: int = Query(30, ge=5, le=50),
+    account_id: str | None = Query(None),
 ):
-    return get_spending_flow(month=month, min_amount=min_amount, max_payees=max_payees)
+    return get_spending_flow(month=month, min_amount=min_amount, max_payees=max_payees, account_id=account_id)

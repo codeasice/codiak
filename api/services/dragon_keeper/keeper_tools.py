@@ -19,6 +19,14 @@ from api.models.dragon_keeper.db import (
     get_current_streak,
     create_rule,
     update_rule,
+    get_category_groups,
+    get_categories,
+    get_category,
+    get_transactions,
+    get_transaction,
+    get_payees_with_stats,
+    get_payee_with_stats,
+    get_balance_snapshot_history,
 )
 from api.services.dragon_keeper.safe_to_spend import calculate_safe_to_spend
 from api.services.dragon_keeper.learning import check_and_create_rule
@@ -257,3 +265,82 @@ def tool_generate_debrief() -> dict:
         "streak": streak,
         "queue": queue,
     }
+
+
+def tool_get_transactions(
+    limit: int = 50,
+    since_date: str | None = None,
+    account_id: str | None = None,
+    category_id: str | None = None,
+    payee_id: str | None = None,
+) -> list[dict]:
+    conn = get_db()
+    try:
+        return get_transactions(conn, limit=limit, since_date=since_date,
+                                account_id=account_id, category_id=category_id,
+                                payee_id=payee_id)
+    finally:
+        conn.close()
+
+
+def tool_get_transaction(transaction_id: str) -> dict:
+    conn = get_db()
+    try:
+        result = get_transaction(conn, transaction_id)
+        return result if result is not None else {"error": f"Transaction '{transaction_id}' not found"}
+    finally:
+        conn.close()
+
+
+def tool_get_payees(limit: int = 200) -> list[dict]:
+    conn = get_db()
+    try:
+        return get_payees_with_stats(conn, limit=limit)
+    finally:
+        conn.close()
+
+
+def tool_get_payee(payee_id: str) -> dict:
+    conn = get_db()
+    try:
+        result = get_payee_with_stats(conn, payee_id)
+        return result if result is not None else {"error": f"Payee '{payee_id}' not found"}
+    finally:
+        conn.close()
+
+
+def tool_get_payee_transactions(payee_id: str, limit: int = 50, since_date: str | None = None) -> list[dict]:
+    conn = get_db()
+    try:
+        return get_transactions(conn, payee_id=payee_id, limit=limit, since_date=since_date)
+    finally:
+        conn.close()
+
+
+def tool_get_categories(include_hidden: bool = False) -> list[dict]:
+    conn = get_db()
+    try:
+        return get_categories(conn, include_hidden=include_hidden)
+    finally:
+        conn.close()
+
+
+def tool_get_category_groups(include_hidden: bool = False) -> list[dict]:
+    conn = get_db()
+    try:
+        return get_category_groups(conn, include_hidden=include_hidden)
+    finally:
+        conn.close()
+
+
+def tool_get_account_balance_history(account_id: str | None = None) -> list[dict]:
+    conn = get_db()
+    try:
+        return get_balance_snapshot_history(conn, account_id=account_id)
+    finally:
+        conn.close()
+
+
+def tool_set_payee_category(payee_name: str, category_name: str) -> dict:
+    from api.services.dragon_keeper.rules_management import set_payee_category
+    return set_payee_category(payee_name=payee_name, category_name=category_name)

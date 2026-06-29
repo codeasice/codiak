@@ -1,13 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../../api'
 
+export interface ChargeHistoryPoint {
+  date: string
+  amount: number
+}
+
 export interface RecurringItem {
   id: number
   payee_name: string
   type: 'income' | 'expense'
-  cadence: 'biweekly' | 'monthly' | 'annual'
+  cadence: 'biweekly' | 'monthly' | 'semi_monthly' | 'annual'
   expected_amount: number
   expected_day: number
+  expected_day_2: number | null
   next_expected_date: string
   confirmed: boolean
   include_in_sts: boolean
@@ -17,6 +23,9 @@ export interface RecurringItem {
   cancelled_date: string | null
   is_subscription: boolean
   status: 'active' | 'cancelled' | 'archived'
+  charge_history: ChargeHistoryPoint[]
+  linked_payees?: string[]
+  all_payee_names?: string[]
   created_at: string
   updated_at: string
 }
@@ -159,6 +168,110 @@ export function useDismissRecurring() {
       apiFetch(`/dragon-keeper/recurring/${id}`, { method: 'DELETE' }),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: KEY })
+      qc.invalidateQueries({ queryKey: ['dragon-keeper', 'safe-to-spend'] })
+    },
+  })
+}
+
+export interface LinkWarning {
+  code: string
+  message: string
+  severity: 'error' | 'warning' | 'info'
+}
+
+export interface LinkPreview {
+  canonical: Pick<RecurringItem, 'id' | 'payee_name' | 'type' | 'cadence' | 'expected_amount' | 'confirmed' | 'is_subscription' | 'status' | 'include_in_sts'>
+  source: {
+    id: number | null
+    payee_name: string
+    type: RecurringItem['type']
+    cadence: RecurringItem['cadence']
+    expected_amount: number
+    confirmed: boolean
+    is_subscription: boolean
+    status: RecurringItem['status']
+    include_in_sts: boolean
+  }
+  warnings: LinkWarning[]
+  blocking: boolean
+  combined_charge_history: ChargeHistoryPoint[]
+  combined_occurrence_count: number
+  combined_last_seen: string | null
+  link_mode?: 'payee_name' | 'recurring_item'
+}
+
+export function useLinkPreview(
+  itemId: number | null,
+  sourceId: number | null,
+  canonicalId: number | null,
+  enabled: boolean,
+) {
+  return useQuery<LinkPreview>({
+    queryKey: [...KEY, 'link-preview', itemId, 'item', sourceId, canonicalId],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        source_recurring_id: String(sourceId),
+        canonical_recurring_id: String(canonicalId),
+      })
+      return apiFetch(`/dragon-keeper/recurring/${itemId}/link/preview?${params}`)
+    },
+    enabled: enabled && itemId != null && sourceId != null && canonicalId != null,
+  })
+}
+
+export function useLinkPreviewByPayeeName(
+  itemId: number | null,
+  payeeName: string,
+  enabled: boolean,
+) {
+  return useQuery<LinkPreview>({
+    queryKey: [...KEY, 'link-preview', itemId, 'payee', payeeName],
+    queryFn: () => {
+      const params = new URLSearchParams({ payee_name: payeeName })
+      return apiFetch(`/dragon-keeper/recurring/${itemId}/link/preview?${params}`)
+    },
+    enabled: enabled && itemId != null && payeeName.trim().length > 0,
+  })
+}
+
+export function useLinkRecurring() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: {
+      itemId: number
+      source_recurring_id?: number
+      payee_name?: string
+      canonical_recurring_id?: number
+      force_amount?: boolean
+    }) =>
+      apiFetch(`/dragon-keeper/recurring/${data.itemId}/link`, {
+        method: 'POST',
+        body: JSON.stringify({
+          source_recurring_id: data.source_recurring_id,
+          payee_name: data.payee_name,
+          canonical_recurring_id: data.canonical_recurring_id,
+          force_amount: data.force_amount ?? false,
+        }),
+      }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: KEY })
+      qc.invalidateQueries({ queryKey: ['dragon-keeper', 'recurring', 'duplicate-suggestions'] })
+      qc.invalidateQueries({ queryKey: ['dragon-keeper', 'safe-to-spend'] })
+    },
+  })
+}
+
+export function useUnlinkRecurringPayee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { itemId: number; payee_name: string }) =>
+      apiFetch(
+        `/dragon-keeper/recurring/${data.itemId}/link/${encodeURIComponent(data.payee_name)}`,
+        { method: 'DELETE' },
+      ),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: KEY })
+      qc.invalidateQueries({ queryKey: ['dragon-keeper', 'recurring', 'duplicate-suggestions'] })
       qc.invalidateQueries({ queryKey: ['dragon-keeper', 'safe-to-spend'] })
     },
   })
