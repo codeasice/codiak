@@ -14,6 +14,8 @@ import ObsidianNotePlacement from '../tools/ObsidianNotePlacement'
 import BmadProjectStatus from '../tools/BmadProjectStatus'
 import DragonKeeper from '../tools/DragonKeeper'
 import WireframeVisualizer from '../tools/WireframeVisualizer'
+import HomeAssistantSensors from '../tools/HomeAssistantSensors'
+import HomeAssistantDashboard from '../tools/HomeAssistantDashboard'
 
 interface ToolMeta {
     id: string
@@ -37,6 +39,8 @@ const TOOL_COMPONENTS: Record<string, ToolComponent> = {
     BmadProjectStatus,
     DragonKeeper,
     WireframeVisualizer,
+    HomeAssistantSensors,
+    HomeAssistantDashboard,
 }
 
 export default function ToolPage() {

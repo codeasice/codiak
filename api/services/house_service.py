@@ -6,6 +6,8 @@ import yaml
 
 
 ROOMS_FOLDER = "1 Personal/3 Resources/Property/Rooms"
+SENSORS_FOLDER = "1 Personal/3 Resources/Possessions (Thing and Stuff I own) Resource/Electronic Devices and Accessories/Sensors"
+LIGHTS_FOLDER = "1 Personal/3 Resources/Possessions (Thing and Stuff I own) Resource/Electronic Devices and Accessories/Smart Lights"
 ROOM_TAG = "room"
 
 
@@ -16,6 +18,13 @@ def _vault_path() -> str:
 def _rooms_dir() -> Path:
     folder = os.getenv("VIZ_ROOM_FOLDER", ROOMS_FOLDER)
     return Path(_vault_path()) / folder
+
+
+def _sensors_dir() -> Path:
+    return Path(_vault_path()) / SENSORS_FOLDER
+
+def _lights_dir() -> Path:
+    return Path(_vault_path()) / LIGHTS_FOLDER
 
 
 def _slugify(name: str) -> str:
@@ -31,7 +40,8 @@ def _coerce_float(val) -> float | None:
         return None
 
 
-def _parse_room_file(filepath: Path) -> dict | None:
+def _parse_frontmatter(filepath: Path) -> dict | None:
+    """Parse YAML frontmatter from any vault note. Returns None on error."""
     try:
         content = filepath.read_text(encoding="utf-8")
     except OSError:
@@ -41,10 +51,62 @@ def _parse_room_file(filepath: Path) -> dict | None:
     end = content.find("---", 3)
     if end == -1:
         return None
-    fm_str = content[3:end]
     try:
-        fm = yaml.safe_load(fm_str) or {}
+        return yaml.safe_load(content[3:end]) or {}
     except yaml.YAMLError:
+        return None
+
+
+def _strip_wikilink(val) -> str:
+    """Strip Obsidian [[...]] syntax, returning the inner title."""
+    if not isinstance(val, str):
+        return ""
+    return re.sub(r'^\[\[(.+)\]\]$', r'\1', val.strip())
+
+
+def _build_sensor_map() -> dict[str, str]:
+    """Returns {slugified_sensor_stem: ha_entity_id} for sensor notes that have ha_entity_id."""
+    sensors_dir = _sensors_dir()
+    result: dict[str, str] = {}
+    if not sensors_dir.exists():
+        return result
+    for f in sensors_dir.glob("*.md"):
+        fm = _parse_frontmatter(f)
+        if fm is None:
+            continue
+        ha_entity_id = fm.get("ha_entity_id")
+        if ha_entity_id:
+            result[_slugify(f.stem)] = str(ha_entity_id).strip()
+    return result
+
+
+def _build_lights_map() -> dict[str, list[str]]:
+    """Returns {room_id: [ha_entity_id, ...]} for light notes that have ha_entity_id and a location."""
+    lights_dir = _lights_dir()
+    result: dict[str, list[str]] = {}
+    if not lights_dir.exists():
+        return result
+    for f in lights_dir.glob("*.md"):
+        fm = _parse_frontmatter(f)
+        if fm is None:
+            continue
+        tags = fm.get("tags", [])
+        if isinstance(tags, str):
+            tags = [tags]
+        if "smart-light" not in tags:
+            continue
+        ha_entity_id = fm.get("ha_entity_id")
+        location_raw = _strip_wikilink(fm.get("location", ""))
+        if not ha_entity_id or not location_raw:
+            continue
+        room_id = _slugify(location_raw)
+        result.setdefault(room_id, []).append(str(ha_entity_id).strip())
+    return result
+
+
+def _parse_room_file(filepath: Path) -> dict | None:
+    fm = _parse_frontmatter(filepath)
+    if fm is None:
         return None
 
     tags = fm.get("tags", [])
@@ -64,6 +126,9 @@ def _parse_room_file(filepath: Path) -> dict | None:
     name = str(fm.get("title") or filepath.stem.replace("_", " ").title())
     note = str(fm.get("note") or "")
 
+    motion_raw = _strip_wikilink(fm.get("motion_sensor", ""))
+    motion_sensor_ref = _slugify(motion_raw) if motion_raw else None
+
     return {
         "id": room_id,
         "name": name,
@@ -72,6 +137,7 @@ def _parse_room_file(filepath: Path) -> dict | None:
         "z": z,
         "w": w,
         "d": d,
+        "_motion_sensor_ref": motion_sensor_ref,
     }
 
 
@@ -142,6 +208,9 @@ def get_rooms() -> dict:
     if not folder.exists():
         return {"rooms": [], "source": "folder_missing", "count": 0}
 
+    sensor_map = _build_sensor_map()
+    lights_map = _build_lights_map()
+
     # Sort so emoji-prefixed files (higher Unicode) come last and win over slug duplicates
     seen_ids: set[str] = set()
     rooms: list[dict] = []
@@ -151,7 +220,6 @@ def get_rooms() -> dict:
         room = _parse_room_file(f)
         if room is not None:
             if room["id"] in seen_ids:
-                # Replace the earlier (slug-named) entry with this one
                 rooms = [r for r in rooms if r["id"] != room["id"]]
             rooms.append(room)
             seen_ids.add(room["id"])
@@ -159,5 +227,8 @@ def get_rooms() -> dict:
     links = _compute_links(rooms)
     for room in rooms:
         room["links"] = links.get(room["id"], {})
+        ref = room.pop("_motion_sensor_ref", None)
+        room["motion_entity_id"] = sensor_map.get(ref) if ref else None
+        room["light_entity_ids"] = lights_map.get(room["id"], [])
 
     return {"rooms": rooms, "source": "vault", "count": len(rooms)}

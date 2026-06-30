@@ -10,6 +10,8 @@ interface RoomData {
   w: number
   d: number
   links: Record<string, string>
+  motion_entity_id?: string | null
+  light_entity_ids?: string[]
 }
 
 const FALLBACK_ROOMS: RoomData[] = [
@@ -50,7 +52,6 @@ const HOTSPOTS = [
   { id: 'cellar_hazard', room: 'creepy_cellar', label: 'Cellar floor hazard', type: 'warning', detail: 'Low visibility zone', x: 45.2, y: 0.08, z: 24.4 },
   { id: 'glass_nest', room: 'glass_room', label: 'Bird nest with eggs', type: 'nest', detail: 'Protected area', x: 46.6, y: 2.35, z: 2.8 },
   { id: 'garage_equipment', room: 'garage', label: 'Garage equipment rack', type: 'equip', detail: 'Equipment', x: 2.1, y: 0.85, z: 20.8 },
-  { id: 'stairs_inspect', room: 'upstairs_stairs', label: 'Stair inspection point', type: 'inspect', detail: 'Inspection point', x: 33.2, y: 1.05, z: 11.0 },
 ]
 
 const PALETTE: Record<string, string> = {
@@ -58,7 +59,6 @@ const PALETTE: Record<string, string> = {
   warning: '#f7b955',
   nest: '#5ee08b',
   equip: '#b69cff',
-  inspect: '#ff6b5f',
 }
 
 const DIRECTIONS = ['north', 'east', 'south', 'west'] as const
@@ -81,6 +81,10 @@ function WireframeVisualizer() {
   const hotspotListRef = useRef<HTMLDivElement>(null)
   const compassRef = useRef<HTMLDivElement>(null)
   const roomsRef = useRef<RoomData[]>(FALLBACK_ROOMS)
+  const motionRef = useRef<Map<string, { state: string; last_changed: string }>>(new Map())
+  const lightStatesRef = useRef<Map<string, { state: string; name: string }>>(new Map())
+  const deviceStatusRef = useRef<HTMLDivElement>(null)
+  const onDeviceUpdateRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     apiFetch<{ rooms: RoomData[] }>('/rooms')
@@ -94,6 +98,27 @@ function WireframeVisualizer() {
   }, [])
 
   useEffect(() => {
+    const poll = () =>
+      apiFetch<{
+        motion_sensors: { entity_id: string; state: string; last_changed: string }[]
+        lights: { entity_id: string; state: string; friendly_name: string }[]
+      }>('/home-assistant/entities')
+        .then(data => {
+          const mm = new Map<string, { state: string; last_changed: string }>()
+          ;(data.motion_sensors ?? []).forEach(s => mm.set(s.entity_id, { state: s.state, last_changed: s.last_changed }))
+          motionRef.current = mm
+          const lm = new Map<string, { state: string; name: string }>()
+          ;(data.lights ?? []).forEach(l => lm.set(l.entity_id, { state: l.state, name: l.friendly_name || l.entity_id }))
+          lightStatesRef.current = lm
+          onDeviceUpdateRef.current?.()
+        })
+        .catch(() => {})
+    poll()
+    const id = setInterval(poll, 20_000)
+    return () => clearInterval(id)
+  }, [])
+
+  useEffect(() => {
     const scene = sceneRef.current!
     const mapCanvas = mapRef.current!
     const ctx = scene.getContext('2d')!
@@ -103,7 +128,7 @@ function WireframeVisualizer() {
     let facing: Direction = 'east'
     let facingAngle = DIR_ANGLES[facing]
     let camX = 24, camZ = 7
-    let selectedHotspotId = 'stairs_inspect'
+    let selectedHotspotId = 'kitchen_sensor'
     let pulse = 0
     const pressedKeys = new Set<string>()
     let shiftHeld = false
@@ -228,6 +253,54 @@ function WireframeVisualizer() {
       edges.forEach(([a, b]) => drawLine3d(a.x, a.y, a.z, b.x, b.y, b.z, emphasis, lw))
       for (let gx = x0 + 2; gx < x1; gx += 2) drawLine3d(gx, y0, z0, gx, y0, z1, 'rgba(238,242,248,0.13)', 1)
       for (let gz = z0 + 2; gz < z1; gz += 2) drawLine3d(x0, y0, gz, x1, y0, gz, 'rgba(238,242,248,0.13)', 1)
+
+      if (room.light_entity_ids?.length) {
+        const ids = room.light_entity_ids
+        const onCount = ids.filter(id => lightStatesRef.current.get(id)?.state === 'on').length
+        const anyOn = onCount > 0
+        const p = project(x0 + w / 2, 2.5, z0 + d * 0.3)
+        if (p) {
+          const alpha = anyOn ? 0.9 : 0.28
+          const radius = 7
+          ctx.save()
+          ctx.globalAlpha = alpha
+          ctx.fillStyle = anyOn ? '#ffe57a' : '#556'
+          ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill()
+          if (anyOn) {
+            ctx.globalAlpha = alpha * 0.4
+            ctx.strokeStyle = '#fff8c0'; ctx.lineWidth = 2
+            ctx.beginPath(); ctx.arc(p.x, p.y, radius + 5, 0, Math.PI * 2); ctx.stroke()
+          }
+          ctx.globalAlpha = alpha
+          ctx.font = '12px Inter, system-ui, sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillStyle = anyOn ? '#ffe57a' : '#778'
+          const label = ids.length > 1 ? `${onCount}/${ids.length} ON` : (anyOn ? 'ON' : 'OFF')
+          ctx.fillText(label, p.x, p.y - radius - 8)
+          ctx.restore()
+        }
+      }
+
+      if (room.motion_entity_id && motionRef.current.get(room.motion_entity_id)?.state === 'on') {
+        const p = project(x0 + w / 2, 2.7, z0 + d / 2)
+        if (p) {
+          const alpha = 0.6 + 0.3 * Math.sin(pulse / 12)
+          const radius = 9
+          ctx.save()
+          ctx.globalAlpha = alpha
+          ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 2
+          ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(p.x - radius * 1.7, p.y); ctx.lineTo(p.x + radius * 1.7, p.y)
+          ctx.moveTo(p.x, p.y - radius * 1.7); ctx.lineTo(p.x, p.y + radius * 1.7)
+          ctx.stroke()
+          ctx.font = '12px Inter, system-ui, sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillStyle = '#ff4444'
+          ctx.fillText(room.name.toUpperCase(), p.x, p.y - radius - 12)
+          ctx.restore()
+        }
+      }
     }
 
     function drawOutdoorGrid() {
@@ -332,6 +405,28 @@ function WireframeVisualizer() {
         mapCtx.font = '10px Inter, system-ui, sans-serif'
         mapCtx.fillText(room.name, tx(room.x) + 8, tz(room.z) + 22)
       })
+      // Light and motion indicators on minimap
+      roomsRef.current.forEach(room => {
+        if (room.light_entity_ids?.length) {
+          const anyOn = room.light_entity_ids.some(id => lightStatesRef.current.get(id)?.state === 'on')
+          mapCtx.fillStyle = anyOn ? '#ffe57a' : '#445'
+          mapCtx.globalAlpha = anyOn ? 0.85 : 0.3
+          mapCtx.beginPath()
+          mapCtx.arc(tx(room.x + room.w / 2) - 4, tz(room.z + room.d * 0.3), 4, 0, Math.PI * 2)
+          mapCtx.fill()
+        }
+        if (room.motion_entity_id && motionRef.current.get(room.motion_entity_id)?.state === 'on') {
+          const alpha = 0.55 + 0.35 * Math.sin(pulse / 12)
+          mapCtx.strokeStyle = '#ff4444'
+          mapCtx.lineWidth = 1.5
+          mapCtx.globalAlpha = alpha
+          mapCtx.beginPath()
+          mapCtx.arc(tx(room.x + room.w / 2), tz(room.z + room.d / 2), 4, 0, Math.PI * 2)
+          mapCtx.stroke()
+        }
+      })
+      mapCtx.globalAlpha = 1
+
       HOTSPOTS.forEach(hs => {
         mapCtx.fillStyle = PALETTE[hs.type]
         mapCtx.globalAlpha = hs.id === selectedHotspotId ? 1 : 0.55
@@ -348,24 +443,81 @@ function WireframeVisualizer() {
       mapCtx.stroke()
     }
 
+    function formatElapsed(iso: string): string {
+      const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+      if (s < 60) return `${s}s`
+      if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`
+      return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`
+    }
+
+    function updateDeviceHud() {
+      if (!deviceStatusRef.current) return
+      const room = activeRoom()
+      const items: string[] = []
+      if (room.motion_entity_id) {
+        const entry = motionRef.current.get(room.motion_entity_id)
+        const active = entry?.state === 'on'
+        const elapsed = entry?.last_changed ? formatElapsed(entry.last_changed) : ''
+        const detail = active
+          ? `ACTIVE · ${elapsed}`
+          : elapsed ? `Clear · last ${elapsed} ago` : 'Clear'
+        items.push(`<div class="wfv-device-item${active ? ' wfv-device-active' : ''}">
+          <span class="wfv-device-dot" style="background:${active ? '#ff4444' : '#445'}"></span>
+          <span><b>Motion Sensor</b>${detail}</span>
+        </div>`)
+      }
+      room.light_entity_ids?.forEach(eid => {
+        const entry = lightStatesRef.current.get(eid)
+        const on = entry?.state === 'on'
+        const name = entry?.name ?? eid
+        items.push(`<button class="wfv-device-item wfv-device-btn${on ? ' wfv-device-active' : ''}" data-eid="${eid}" data-type="light">
+          <span class="wfv-device-dot" style="background:${on ? '#ffe57a' : '#445'}"></span>
+          <span><b>${name}</b>${on ? 'ON' : 'OFF'}</span>
+        </button>`)
+      })
+      deviceStatusRef.current.innerHTML = items.join('')
+    }
+    onDeviceUpdateRef.current = updateDeviceHud
+
+    const onDeviceClick = (e: Event) => {
+      const btn = (e.target as HTMLElement).closest('[data-type="light"]') as HTMLElement | null
+      if (!btn) return
+      const eid = btn.dataset.eid
+      if (!eid) return
+      const current = lightStatesRef.current.get(eid)
+      if (current) {
+        lightStatesRef.current.set(eid, { ...current, state: current.state === 'on' ? 'off' : 'on' })
+        updateDeviceHud()
+      }
+      apiFetch('/home-assistant/services/light/toggle', {
+        method: 'POST',
+        body: JSON.stringify({ entity_id: eid }),
+      }).catch(() => {
+        if (current) { lightStatesRef.current.set(eid, current); updateDeviceHud() }
+      })
+    }
+    deviceStatusRef.current?.addEventListener('click', onDeviceClick)
+
     function updateHud() {
       const room = activeRoom()
       if (roomNameRef.current) roomNameRef.current.textContent = room.name
       if (roomNoteRef.current) roomNoteRef.current.textContent = room.note
       if (compassRef.current) compassRef.current.textContent = `Facing ${facing}`
-      if (!hotspotListRef.current) return
-      const relevant = HOTSPOTS.filter(hs => hs.room === currentRoomId)
-      const nearby = relevant.length ? relevant : HOTSPOTS.filter(hs => hs.id === selectedHotspotId)
-      hotspotListRef.current.innerHTML = ''
-      nearby.forEach(hs => {
-        const btn = document.createElement('button')
-        btn.className = 'wfv-hotspot'
-        btn.setAttribute('aria-pressed', String(hs.id === selectedHotspotId))
-        btn.style.color = PALETTE[hs.type]
-        btn.innerHTML = `<span class="wfv-dot"></span><span><b>${hs.label}</b>${hs.detail}</span>`
-        btn.addEventListener('click', () => { selectedHotspotId = hs.id; drawScene(); drawMap() })
-        hotspotListRef.current!.append(btn)
-      })
+      if (hotspotListRef.current) {
+        const relevant = HOTSPOTS.filter(hs => hs.room === currentRoomId)
+        const nearby = relevant.length ? relevant : HOTSPOTS.filter(hs => hs.id === selectedHotspotId)
+        hotspotListRef.current.innerHTML = ''
+        nearby.forEach(hs => {
+          const btn = document.createElement('button')
+          btn.className = 'wfv-hotspot'
+          btn.setAttribute('aria-pressed', String(hs.id === selectedHotspotId))
+          btn.style.color = PALETTE[hs.type]
+          btn.innerHTML = `<span class="wfv-dot"></span><span><b>${hs.label}</b>${hs.detail}</span>`
+          btn.addEventListener('click', () => { selectedHotspotId = hs.id; drawScene(); drawMap() })
+          hotspotListRef.current!.append(btn)
+        })
+      }
+      updateDeviceHud()
     }
 
     function syncFacingLabel() {
@@ -485,8 +637,11 @@ function WireframeVisualizer() {
     const mainContent = root.closest('.main-content')
     if (mainContent) ro.observe(mainContent)
 
+    let lastDeviceTick = 0
     function animate() {
       pulse++
+      const now = Date.now()
+      if (now - lastDeviceTick >= 1000) { updateDeviceHud(); lastDeviceTick = now }
       const fwd = (pressedKeys.has('w') ? 1 : 0) - (pressedKeys.has('s') ? 1 : 0)
       const sideIntent = (pressedKeys.has('d') ? 1 : 0) - (pressedKeys.has('a') ? 1 : 0)
       const strafe = shiftHeld ? sideIntent : 0
@@ -494,7 +649,7 @@ function WireframeVisualizer() {
       let moved = fwd !== 0 || strafe !== 0 ? fluidMove(fwd, strafe) : false
       if (turn !== 0) { facingAngle -= turn * KEY_TURN_STEP; syncFacingLabel(); moved = true }
       drawScene()
-      if (moved) drawMap()
+      if (moved || motionRef.current.size > 0 || lightStatesRef.current.size > 0) drawMap()
       rafId = requestAnimationFrame(animate)
     }
 
@@ -512,6 +667,7 @@ function WireframeVisualizer() {
       scene.removeEventListener('pointerup', endDrag)
       scene.removeEventListener('pointercancel', endDrag)
       containerRef.current?.removeEventListener('click', onControlClick)
+      deviceStatusRef.current?.removeEventListener('click', onDeviceClick)
       ro.disconnect()
     }
   }, [])
@@ -576,6 +732,27 @@ function WireframeVisualizer() {
         .wfv-status-label { margin: 0 0 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: #9aa6b7; }
         .wfv-room-name { display: block; margin-bottom: 4px; font-size: 22px; font-weight: 700; line-height: 1; color: #eef2f8; }
         .wfv-room-note { margin: 0; font-size: 12px; color: #9aa6b7; line-height: 1.4; }
+        .wfv-device-list { display: grid; gap: 6px; margin-top: 12px; }
+        .wfv-device-item {
+          display: grid;
+          grid-template-columns: 12px 1fr;
+          gap: 8px;
+          align-items: start;
+          padding: 6px 8px;
+          border: 1px solid rgba(238,242,248,0.12);
+          border-radius: 6px;
+          background: rgba(19,25,36,0.5);
+          font-size: 12px;
+          color: #9aa6b7;
+        }
+        .wfv-device-item.wfv-device-active { border-color: rgba(238,242,248,0.22); }
+        .wfv-device-item b { display: block; margin-bottom: 1px; font-size: 11px; color: #eef2f8; }
+        .wfv-device-btn { cursor: pointer; width: 100%; text-align: left; font-family: inherit; }
+        .wfv-device-btn:hover { background: rgba(30,38,54,0.9); border-color: rgba(238,242,248,0.3); }
+        .wfv-device-dot {
+          width: 10px; height: 10px; margin-top: 3px;
+          border-radius: 50%; flex-shrink: 0;
+        }
         .wfv-hotspot-list { display: grid; gap: 8px; margin-top: 12px; }
         .wfv-hotspot {
           display: grid;
@@ -669,6 +846,7 @@ function WireframeVisualizer() {
             <p className="wfv-status-label">Current Room</p>
             <strong className="wfv-room-name" ref={roomNameRef}>Upstairs Hallway</strong>
             <p className="wfv-room-note" ref={roomNoteRef}>Central upstairs connector for bedrooms, closets, bathrooms, and dining.</p>
+            <div className="wfv-device-list" ref={deviceStatusRef} aria-label="Sensors and lights" />
             <div className="wfv-hotspot-list" ref={hotspotListRef} aria-label="Highlighted objects" />
           </div>
 
@@ -685,11 +863,12 @@ function WireframeVisualizer() {
           </nav>
 
           <aside className="wfv-legend" aria-label="Highlight legend">
+            <span className="wfv-legend-item"><i className="wfv-swatch" style={{ color: '#ffe57a', background: '#ffe57a' }} />Light on</span>
+            <span className="wfv-legend-item"><i className="wfv-swatch" style={{ color: '#ff4444', background: 'transparent' }} />Motion active</span>
             <span className="wfv-legend-item"><i className="wfv-swatch" style={{ color: PALETTE.sensor }} />Active sensor</span>
             <span className="wfv-legend-item"><i className="wfv-swatch" style={{ color: PALETTE.warning }} />Hazard</span>
             <span className="wfv-legend-item"><i className="wfv-swatch" style={{ color: PALETTE.nest }} />Nest with eggs</span>
             <span className="wfv-legend-item"><i className="wfv-swatch" style={{ color: PALETTE.equip }} />Equipment</span>
-            <span className="wfv-legend-item"><i className="wfv-swatch" style={{ color: PALETTE.inspect }} />Inspection point</span>
           </aside>
         </section>
       </div>

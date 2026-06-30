@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routers import tools, text_tools
 from api.routers.dragon_keeper import router as dk_router
 from api.routers.house import router as house_router
+from api.routers.home_assistant import router as ha_router
 
 app = FastAPI(
     title="Codiak API",
@@ -32,6 +33,7 @@ app.include_router(tools.router, prefix="/api")
 app.include_router(text_tools.router, prefix="/api/tools")
 app.include_router(dk_router, prefix="/api/dragon-keeper")
 app.include_router(house_router, prefix="/api")
+app.include_router(ha_router, prefix="/api/home-assistant")
 
 
 @app.on_event("startup")
